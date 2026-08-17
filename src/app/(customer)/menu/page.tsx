@@ -1,0 +1,101 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import MenuItemCard from "@/components/MenuItemCard";
+import { useCart } from "@/context/CartContext";
+import Link from "next/link";
+
+interface MenuItem {
+  id: string;
+  name: string;
+  description: string;
+  price_cents: number;
+  category: string;
+  image_url: string;
+  available: number;
+}
+
+export default function MenuPage() {
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<string>("all");
+  const { totalItems, totalCents } = useCart();
+
+  useEffect(() => {
+    fetch("/api/menu")
+      .then((res) => res.json())
+      .then((data) => {
+        setItems(data.items || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const categories = ["all", ...Array.from(new Set(items.map((i) => i.category)))];
+  const filtered = activeCategory === "all" ? items : items.filter((i) => i.category === activeCategory);
+
+  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-12">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-stone-200 rounded w-48" />
+          <div className="grid md:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-48 bg-stone-200 rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-stone-900">Our Menu</h1>
+          <p className="text-stone-500 mt-1">Choose from our selection of drinks and food</p>
+        </div>
+      </div>
+
+      {/* Category Filter */}
+      <div className="flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide">
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setActiveCategory(cat)}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+              activeCategory === cat
+                ? "bg-amber-500 text-white"
+                : "bg-white text-stone-600 border border-stone-200 hover:bg-stone-50"
+            }`}
+          >
+            {cat.charAt(0).toUpperCase() + cat.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Menu Grid */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-16">
+          <p className="text-stone-400 text-lg">No items found in this category</p>
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filtered.map((item) => (
+            <MenuItemCard
+              key={item.id}
+              id={item.id}
+              name={item.name}
+              description={item.description}
+              priceCents={item.price_cents}
+              category={item.category}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
