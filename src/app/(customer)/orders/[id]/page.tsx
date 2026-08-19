@@ -72,6 +72,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       });
   }, [id, user, authLoading, router]);
 
+  // Ask for notification permission
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    }
+  }, []);
+
   // Poll for status changes
   useEffect(() => {
     if (!order || order.status === "picked_up" || order.status === "cancelled") return;
@@ -81,6 +90,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         .then((res) => res.json())
         .then((data) => {
           if (data.order) {
+            // Check if status changed
+            if (data.order.status !== order.status && typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+              if (data.order.status === "preparing") {
+                new Notification("Order Preparing! 👩🍳", { body: `Order #${data.order.order_number} has been accepted and is now being prepared.` });
+              } else if (data.order.status === "ready") {
+                new Notification("Order Ready! ☕", { body: `Your order #${data.order.order_number} is ready for pickup!` });
+              }
+            }
+
             setOrder(data.order);
             // Fetch QR if newly paid
             if (["paid", "preparing", "ready"].includes(data.order.status) && !qrCode) {

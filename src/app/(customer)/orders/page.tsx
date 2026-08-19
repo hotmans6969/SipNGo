@@ -30,6 +30,15 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  // Ask for notification permission
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
@@ -37,11 +46,30 @@ export default function OrdersPage() {
       return;
     }
 
+    let prevOrders: Order[] = [];
+
     const fetchOrders = () => {
       fetch("/api/orders")
         .then((res) => res.json())
         .then((data) => {
-          setOrders(data.orders || []);
+          const freshOrders = data.orders || [];
+          
+          // Check for status changes
+          if (prevOrders.length > 0 && typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+            freshOrders.forEach((newOrder: Order) => {
+              const oldOrder = prevOrders.find((o) => o.id === newOrder.id);
+              if (oldOrder && oldOrder.status !== newOrder.status) {
+                if (newOrder.status === "preparing") {
+                  new Notification("Order Preparing! 👩🍳", { body: `Order #${newOrder.order_number} has been accepted and is now being prepared.` });
+                } else if (newOrder.status === "ready") {
+                  new Notification("Order Ready! ☕", { body: `Your order #${newOrder.order_number} is ready for pickup!` });
+                }
+              }
+            });
+          }
+          
+          prevOrders = freshOrders;
+          setOrders(freshOrders);
           setLoading(false);
         })
         .catch(() => setLoading(false));
