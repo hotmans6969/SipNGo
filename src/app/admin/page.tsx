@@ -6,6 +6,7 @@ import StatusBadge from "@/components/StatusBadge";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import QRScanner from "@/components/QRScanner";
+import { formatMalaysiaTime } from "@/lib/dates";
 
 interface OrderItem {
   id: string;
@@ -288,7 +289,7 @@ export default function AdminDashboard() {
                     <StatusBadge status={order.status} />
                   </div>
                   <p className="text-sm text-stone-500">
-                    {order.customer_name} &middot; {new Date(order.created_at).toLocaleTimeString()}
+                    {order.customer_name} &middot; {formatMalaysiaTime(order.created_at)}
                   </p>
                   <div className="text-base text-stone-700 font-medium mt-3 bg-stone-50 p-3 rounded-lg border border-stone-100">
                     {order.items.map((item) => (

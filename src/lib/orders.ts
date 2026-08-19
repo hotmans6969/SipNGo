@@ -1,5 +1,6 @@
 import getDb from "./db";
 import { v4 as uuidv4 } from "uuid";
+import { getMalaysiaDateString } from "./dates";
 
 export interface CartItem {
   menuItemId: string;
@@ -31,7 +32,7 @@ export interface OrderItemRow {
 
 export function getNextOrderNumber(): number {
   const db = getDb();
-  const today = new Date().toISOString().split("T")[0];
+  const today = getMalaysiaDateString();
   const result = db
     .prepare("SELECT MAX(order_number) as max_num FROM orders WHERE order_date = ?")
     .get(today) as { max_num: number | null } | undefined;
@@ -43,7 +44,7 @@ export function createOrder(userId: string, items: CartItem[]): OrderRow {
   const orderId = uuidv4();
   const qrToken = uuidv4();
   const orderNumber = getNextOrderNumber();
-  const today = new Date().toISOString().split("T")[0];
+  const today = getMalaysiaDateString();
 
   // Fetch menu items and validate
   const menuItemIds = items.map((i) => i.menuItemId);

@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import StatusBadge from "@/components/StatusBadge";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { formatMalaysiaDateTime } from "@/lib/dates";
 
 interface OrderItem {
   id: string;
@@ -105,7 +106,7 @@ export default function OrdersPage() {
                   <StatusBadge status={order.status} />
                 </div>
                 <p className="text-sm text-stone-400 mt-1">
-                  {new Date(order.created_at).toLocaleString()}
+                  {formatMalaysiaDateTime(order.created_at)}
                 </p>
               </div>
               <span className="font-bold text-amber-600 text-lg">{formatPrice(order.total_cents)}</span>
