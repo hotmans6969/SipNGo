@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.railway.up.sipngo_production.twa",
+        "sha256_cert_fingerprints": ["17:1F:A6:E1:D0:F2:7E:C6:F0:D7:E7:65:AD:B2:C2:A7:1F:A8:09:77:4F:FE:8C:FB:60:2C:E5:D8:D6:FF:2B:7F"]
+      }
+    }]
