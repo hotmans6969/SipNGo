@@ -13,7 +13,7 @@ export default function CartPage() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
 
   const handleCheckout = async () => {
     if (!user) {

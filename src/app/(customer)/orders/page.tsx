@@ -54,7 +54,7 @@ export default function OrdersPage() {
     return () => clearInterval(interval);
   }, [user, authLoading, router]);
 
-  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
 
   if (authLoading || loading) {
     return (

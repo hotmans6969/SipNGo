@@ -173,7 +173,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
 
   const statusActions: Record<string, { label: string; next: string; color: string }[]> = {
     paid: [{ label: "Start Preparing", next: "preparing", color: "bg-orange-500 hover:bg-orange-600 border border-orange-600 shadow-sm" }],

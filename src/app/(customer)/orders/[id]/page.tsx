@@ -99,7 +99,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     return () => clearInterval(interval);
   }, [id, order, qrCode]);
 
-  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
 
   if (authLoading || loading) {
     return (

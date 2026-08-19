@@ -15,7 +15,7 @@ export default function MenuItemCard({ id, name, description, priceCents, catego
   const { addItem, items, updateQuantity, removeItem } = useCart();
   const cartItem = items.find((i) => i.menuItemId === id);
 
-  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
 
   const categoryStyles: Record<string, string> = {
     coffee: "bg-amber-100 text-amber-800",

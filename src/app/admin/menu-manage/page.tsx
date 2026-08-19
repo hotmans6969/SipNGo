@@ -46,7 +46,7 @@ export default function MenuManagePage() {
     setLoading(false);
   };
 
-  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
 
   const resetForm = () => {
     setFormData({ name: "", description: "", priceStr: "", category: "coffee" });
@@ -216,7 +216,7 @@ export default function MenuManagePage() {
             </div>
 
             <div className="w-32">
-              <label className="block text-sm font-medium text-stone-700 mb-1">Price ($)</label>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Price (RM)</label>
               <input
                 type="number"
                 step="0.01"

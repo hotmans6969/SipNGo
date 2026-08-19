@@ -17,7 +17,7 @@ export default function FloatingCart() {
     return null;
   }
 
-  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
 
   return (
     <Link
