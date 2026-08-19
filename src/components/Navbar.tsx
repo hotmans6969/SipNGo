@@ -32,21 +32,32 @@ export default function Navbar() {
             <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Menu</span>
           </Link>
 
-          <Link href="/cart" className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors relative ${isActive("/cart") ? "text-amber-500" : "text-stone-400 hover:text-stone-600"}`}>
-            <div className="relative">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-              {totalItems > 0 && (
-                <span className="absolute -top-1.5 -right-2.5 bg-amber-500 text-white text-[10px] font-bold h-4 min-w-4 px-1 rounded-full flex items-center justify-center shadow-sm">
-                  {totalItems}
-                </span>
-              )}
-            </div>
-            <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Cart</span>
-          </Link>
+          {user?.role === "admin" || user?.role === "staff" ? (
+            <Link href="/admin" className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors relative ${isActive("/admin") ? "text-amber-500" : "text-stone-400 hover:text-stone-600"}`}>
+              <div className="relative">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+              </div>
+              <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Dashboard</span>
+            </Link>
+          ) : (
+            <Link href="/cart" className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors relative ${isActive("/cart") ? "text-amber-500" : "text-stone-400 hover:text-stone-600"}`}>
+              <div className="relative">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+                {totalItems > 0 && (
+                  <span className="absolute -top-1.5 -right-2.5 bg-amber-500 text-white text-[10px] font-bold h-4 min-w-4 px-1 rounded-full flex items-center justify-center shadow-sm">
+                    {totalItems}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Cart</span>
+            </Link>
+          )}
 
-          <Link href={user ? "/account" : "/auth/login"} className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${isActive("/account") || isActive("/auth") || isActive("/admin") ? "text-amber-500" : "text-stone-400 hover:text-stone-600"}`}>
+          <Link href={user ? "/account" : "/auth/login"} className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${isActive("/account") || isActive("/auth") ? "text-amber-500" : "text-stone-400 hover:text-stone-600"}`}>
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
