@@ -25,11 +25,16 @@ interface Order {
 }
 
 export default function OrdersPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{title: string, message: string} | null>(null);
   const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.href = '/';
+  };
 
   // Ask for notification permission via a manual request mechanism, but let's 
   // also rely on our in-app toast for a 100% reliable fallback!
@@ -149,14 +154,30 @@ export default function OrdersPage() {
 
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-stone-900">My Orders</h1>
-        {typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && (
+        <div className="flex gap-2">
+          {(user?.role === "admin" || user?.role === "staff") && (
+            <Link 
+              href="/admin"
+              className="text-xs bg-amber-500 text-white px-3 py-1.5 rounded-full font-medium hover:bg-amber-600"
+            >
+              Dashboard
+            </Link>
+          )}
+          {typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && (
+            <button 
+              onClick={requestNotificationPermission}
+              className="text-xs bg-amber-100 text-amber-800 px-3 py-1.5 rounded-full font-medium hover:bg-amber-200"
+            >
+              Push Notifications
+            </button>
+          )}
           <button 
-            onClick={requestNotificationPermission}
-            className="text-xs bg-amber-100 text-amber-800 px-3 py-1.5 rounded-full font-medium hover:bg-amber-200"
+            onClick={handleLogout}
+            className="text-xs bg-stone-200 text-stone-700 px-3 py-1.5 rounded-full font-medium hover:bg-stone-300"
           >
-            Enable Push Notifications
+            Logout
           </button>
-        )}
+        </div>
       </div>
 
       <div className="space-y-4">

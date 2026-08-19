@@ -3,144 +3,58 @@
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { totalItems } = useCart();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
 
-  const handleLogout = async () => {
-    await logout();
-    window.location.href = "/";
-  };
+  const isActive = (path: string) => pathname === path || (path !== "/" && pathname?.startsWith(path));
 
   return (
-    <nav className="bg-stone-900 text-white sticky top-0 z-50 shadow-lg">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight">
-            <span className="text-amber-400">SipNGo</span>
+    <>
+      {/* Top Header (Branding only) */}
+      <header className="bg-stone-900 text-white sticky top-0 z-40 shadow-sm h-14 flex items-center justify-center">
+        <Link href="/" className="font-bold text-xl tracking-tight">
+          <span className="text-amber-400">SipNGo</span>
+        </Link>
+      </header>
+
+      {/* Bottom Navigation Bar */}
+      <nav className="bg-white border-t border-stone-200 fixed bottom-0 left-0 right-0 z-50 safe-area-pb shadow-[0_-5px_20px_-15px_rgba(0,0,0,0.3)]">
+        <div className="max-w-md mx-auto flex justify-around items-center h-16">
+          
+          <Link href="/menu" className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${isActive("/menu") ? "text-amber-500" : "text-stone-400 hover:text-stone-600"}`}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+            <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Menu</span>
           </Link>
 
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-6">
-            <Link href="/menu" className="text-stone-300 hover:text-white transition-colors">
-              Menu
-            </Link>
-            {user ? (
-              <>
-                <Link href="/orders" className="text-stone-300 hover:text-white transition-colors">
-                  My Orders
-                </Link>
-                {(user.role === "admin" || user.role === "staff") && (
-                  <Link href="/admin" className="text-amber-400 hover:text-amber-300 transition-colors">
-                    Dashboard
-                  </Link>
-                )}
-                <div className="flex items-center gap-3 ml-4 pl-4 border-l border-stone-700">
-                  <span className="text-sm text-stone-400">{user.name}</span>
-                  <button
-                    onClick={handleLogout}
-                    className="text-sm bg-stone-800 hover:bg-stone-700 px-3 py-1.5 rounded-md transition-colors"
-                  >
-                    Logout
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/auth/login"
-                  className="text-stone-300 hover:text-white transition-colors"
-                >
-                  Login
-                </Link>
-                <Link
-                  href="/auth/register"
-                  className="bg-amber-500 hover:bg-amber-400 text-stone-900 font-semibold px-4 py-2 rounded-lg transition-colors"
-                >
-                  Sign Up
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="md:hidden text-stone-300 hover:text-white"
-          >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              {mobileOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          <Link href="/cart" className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors relative ${isActive("/cart") ? "text-amber-500" : "text-stone-400 hover:text-stone-600"}`}>
+            <div className="relative">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              {totalItems > 0 && (
+                <span className="absolute -top-1.5 -right-2.5 bg-amber-500 text-white text-[10px] font-bold h-4 min-w-4 px-1 rounded-full flex items-center justify-center shadow-sm">
+                  {totalItems}
+                </span>
               )}
-            </svg>
-          </button>
-        </div>
+            </div>
+            <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Cart</span>
+          </Link>
 
-        {/* Mobile Nav */}
-        {mobileOpen && (
-          <div className="md:hidden pb-4 space-y-2">
-            <Link
-              href="/menu"
-              className="block py-2 text-stone-300 hover:text-white"
-              onClick={() => setMobileOpen(false)}
-            >
-              Menu
-            </Link>
-            {user ? (
-              <>
-                <Link
-                  href="/orders"
-                  className="block py-2 text-stone-300 hover:text-white"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  My Orders
-                </Link>
-                {(user.role === "admin" || user.role === "staff") && (
-                  <Link
-                    href="/admin"
-                    className="block py-2 text-amber-400 hover:text-amber-300"
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    Dashboard
-                  </Link>
-                )}
-                <button
-                  onClick={() => {
-                    handleLogout();
-                    setMobileOpen(false);
-                  }}
-                  className="block py-2 text-stone-400 hover:text-white"
-                >
-                  Logout ({user.name})
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/auth/login"
-                  className="block py-2 text-stone-300 hover:text-white"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  Login
-                </Link>
-                <Link
-                  href="/auth/register"
-                  className="block py-2 text-amber-400 hover:text-amber-300"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  Sign Up
-                </Link>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-    </nav>
+          <Link href={user ? "/orders" : "/auth/login"} className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${isActive("/orders") || isActive("/auth") || isActive("/admin") ? "text-amber-500" : "text-stone-400 hover:text-stone-600"}`}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Account</span>
+          </Link>
+
+        </div>
+      </nav>
+    </>
   );
 }

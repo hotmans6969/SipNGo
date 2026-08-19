@@ -4,7 +4,6 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import Navbar from "@/components/Navbar";
-import FloatingCart from "@/components/FloatingCart";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,9 +51,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <CartProvider>
             <Navbar />
-            <main className="flex-1">{children}</main>
-            <FloatingCart />
-            <footer className="bg-stone-900 text-stone-400 text-center py-6 text-sm">
+            <main className="flex-1 pb-20">{children}</main>
+            <footer className="bg-stone-900 text-stone-400 text-center py-6 text-sm mb-16">
               SipNGo &copy; {new Date().getFullYear()}. All rights reserved.
             </footer>
           </CartProvider>
