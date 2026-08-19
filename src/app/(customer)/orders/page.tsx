@@ -28,16 +28,18 @@ export default function OrdersPage() {
   const { user, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState<{title: string, message: string} | null>(null);
   const router = useRouter();
 
-  // Ask for notification permission
-  useEffect(() => {
+  // Ask for notification permission via a manual request mechanism, but let's 
+  // also rely on our in-app toast for a 100% reliable fallback!
+  const requestNotificationPermission = () => {
     if (typeof window !== "undefined" && "Notification" in window) {
       if (Notification.permission === "default") {
         Notification.requestPermission();
       }
     }
-  }, []);
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -55,14 +57,30 @@ export default function OrdersPage() {
           const freshOrders = data.orders || [];
           
           // Check for status changes
-          if (prevOrders.length > 0 && typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+          if (prevOrders.length > 0) {
             freshOrders.forEach((newOrder: Order) => {
               const oldOrder = prevOrders.find((o) => o.id === newOrder.id);
               if (oldOrder && oldOrder.status !== newOrder.status) {
+                let title = "";
+                let body = "";
+                
                 if (newOrder.status === "preparing") {
-                  new Notification("Order Preparing! 👩🍳", { body: `Order #${newOrder.order_number} has been accepted and is now being prepared.` });
+                  title = "Order Preparing! 👩🍳";
+                  body = `Order #${newOrder.order_number} has been accepted and is now being prepared.`;
                 } else if (newOrder.status === "ready") {
-                  new Notification("Order Ready! ☕", { body: `Your order #${newOrder.order_number} is ready for pickup!` });
+                  title = "Order Ready! ☕";
+                  body = `Your order #${newOrder.order_number} is ready for pickup!`;
+                }
+
+                if (title) {
+                  // 1. Show in-app Toast overlay (works 100% of the time)
+                  setToast({ title, message: body });
+                  setTimeout(() => setToast(null), 5000);
+
+                  // 2. Try OS-level Push Notification if permitted
+                  if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+                    new Notification(title, { body });
+                  }
                 }
               }
             });
@@ -115,8 +133,31 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-stone-900 mb-6">My Orders</h1>
+    <div className="max-w-3xl mx-auto px-4 py-8 relative">
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 bg-stone-900 text-white p-5 rounded-2xl shadow-2xl z-50 animate-bounce-short border border-stone-700">
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <h4 className="font-bold text-lg text-amber-400 mb-1">{toast.title}</h4>
+              <p className="text-sm opacity-90">{toast.message}</p>
+            </div>
+            <button onClick={() => setToast(null)} className="text-stone-400 hover:text-white">✕</button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-stone-900">My Orders</h1>
+        {typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && (
+          <button 
+            onClick={requestNotificationPermission}
+            className="text-xs bg-amber-100 text-amber-800 px-3 py-1.5 rounded-full font-medium hover:bg-amber-200"
+          >
+            Enable Push Notifications
+          </button>
+        )}
+      </div>
 
       <div className="space-y-4">
         {orders.map((order) => (

@@ -32,6 +32,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState<{title: string, message: string} | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -72,14 +73,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       });
   }, [id, user, authLoading, router]);
 
-  // Ask for notification permission
-  useEffect(() => {
+  // Ask for notification permission (fallback button in UI)
+  const requestNotificationPermission = () => {
     if (typeof window !== "undefined" && "Notification" in window) {
       if (Notification.permission === "default") {
         Notification.requestPermission();
       }
     }
-  }, []);
+  };
 
   // Poll for status changes
   useEffect(() => {
@@ -91,11 +92,27 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         .then((data) => {
           if (data.order) {
             // Check if status changed
-            if (data.order.status !== order.status && typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+            if (data.order.status !== order.status) {
+              let title = "";
+              let body = "";
+              
               if (data.order.status === "preparing") {
-                new Notification("Order Preparing! 👩🍳", { body: `Order #${data.order.order_number} has been accepted and is now being prepared.` });
+                title = "Order Preparing! 👩🍳";
+                body = `Order #${data.order.order_number} has been accepted and is now being prepared.`;
               } else if (data.order.status === "ready") {
-                new Notification("Order Ready! ☕", { body: `Your order #${data.order.order_number} is ready for pickup!` });
+                title = "Order Ready! ☕";
+                body = `Your order #${data.order.order_number} is ready for pickup!`;
+              }
+
+              if (title) {
+                // 1. In-app toast overlay
+                setToast({ title, message: body });
+                setTimeout(() => setToast(null), 5000);
+
+                // 2. OS-level Push if permitted
+                if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+                  new Notification(title, { body });
+                }
               }
             }
 
@@ -147,7 +164,20 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="max-w-2xl mx-auto px-4 py-8 relative">
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 bg-stone-900 text-white p-5 rounded-2xl shadow-2xl z-50 animate-bounce-short border border-stone-700">
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <h4 className="font-bold text-lg text-amber-400 mb-1">{toast.title}</h4>
+              <p className="text-sm opacity-90">{toast.message}</p>
+            </div>
+            <button onClick={() => setToast(null)} className="text-stone-400 hover:text-white">✕</button>
+          </div>
+        </div>
+      )}
+
       {paymentStatus === "success" && (
         <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-800 rounded-xl">
           <p className="font-semibold">Payment successful!</p>
@@ -162,9 +192,19 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       )}
 
-      <Link href="/orders" className="text-amber-600 hover:text-amber-700 font-medium text-sm mb-4 inline-block">
-        &larr; Back to Orders
-      </Link>
+      <div className="flex justify-between items-center mb-4">
+        <Link href="/orders" className="text-amber-600 hover:text-amber-700 font-medium text-sm inline-block">
+          &larr; Back to Orders
+        </Link>
+        {typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && (
+          <button 
+            onClick={requestNotificationPermission}
+            className="text-xs bg-amber-100 text-amber-800 px-3 py-1.5 rounded-full font-medium hover:bg-amber-200"
+          >
+            Enable Push Notifications
+          </button>
+        )}
+      </div>
 
       {/* Order Header */}
       <div className="bg-white rounded-2xl border border-stone-200 p-6 mb-6">
