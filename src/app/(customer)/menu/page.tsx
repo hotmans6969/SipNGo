@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import MenuItemCard from "@/components/MenuItemCard";
-import { useCart } from "@/context/CartContext";
-import Link from "next/link";
 
 interface MenuItem {
   id: string;
@@ -19,7 +17,6 @@ export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("all");
-  const { totalItems, totalCents } = useCart();
 
   useEffect(() => {
     fetch("/api/menu")
@@ -33,8 +30,6 @@ export default function MenuPage() {
 
   const categories = ["all", ...Array.from(new Set(items.map((i) => i.category)))];
   const filtered = activeCategory === "all" ? items : items.filter((i) => i.category === activeCategory);
-
-  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
   if (loading) {
     return (
@@ -53,6 +48,13 @@ export default function MenuPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Event/Offer Banner */}
+      <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-6 mb-8 text-white shadow-md">
+        <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-3 inline-block">Special Offer</span>
+        <h2 className="text-2xl font-bold mb-1">Buy 1 Get 1 Free on all Coffee! ☕</h2>
+        <p className="text-amber-50 opacity-90">Celebrate this week with double the energy. Available while supplies last.</p>
+      </div>
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-stone-900">Our Menu</h1>
@@ -92,6 +94,7 @@ export default function MenuPage() {
               description={item.description}
               priceCents={item.price_cents}
               category={item.category}
+              imageUrl={item.image_url}
             />
           ))}
         </div>

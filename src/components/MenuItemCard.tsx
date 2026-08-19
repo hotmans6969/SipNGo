@@ -8,9 +8,10 @@ interface MenuItemCardProps {
   description: string;
   priceCents: number;
   category: string;
+  imageUrl?: string;
 }
 
-export default function MenuItemCard({ id, name, description, priceCents, category }: MenuItemCardProps) {
+export default function MenuItemCard({ id, name, description, priceCents, category, imageUrl }: MenuItemCardProps) {
   const { addItem, items, updateQuantity, removeItem } = useCart();
   const cartItem = items.find((i) => i.menuItemId === id);
 
@@ -26,25 +27,36 @@ export default function MenuItemCard({ id, name, description, priceCents, catego
   };
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
-      <div>
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="font-semibold text-stone-900 text-lg">{name}</h3>
-          <span className="font-bold text-amber-600 whitespace-nowrap">{formatPrice(priceCents)}</span>
+    <div className="bg-white rounded-xl border border-stone-200 flex flex-col justify-between hover:shadow-md transition-shadow overflow-hidden">
+      {imageUrl && (
+        <div className="w-full h-48 overflow-hidden bg-stone-100 flex items-center justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={imageUrl}
+            alt={name}
+            className="w-full h-full object-cover"
+          />
         </div>
-        <span
-          className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full mb-2 ${
-            categoryStyles[category] || "bg-stone-100 text-stone-600"
-          }`}
-        >
-          {category}
-        </span>
-        {description && (
-          <p className="text-stone-500 text-sm mt-1">{description}</p>
-        )}
-      </div>
+      )}
+      <div className="p-5 flex flex-col justify-between flex-1">
+        <div>
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <h3 className="font-semibold text-stone-900 text-lg">{name}</h3>
+            <span className="font-bold text-amber-600 whitespace-nowrap">{formatPrice(priceCents)}</span>
+          </div>
+          <span
+            className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full mb-2 ${
+              categoryStyles[category] || "bg-stone-100 text-stone-600"
+            }`}
+          >
+            {category}
+          </span>
+          {description && (
+            <p className="text-stone-500 text-sm mt-1">{description}</p>
+          )}
+        </div>
 
-      <div className="mt-4">
+        <div className="mt-4">
         {cartItem ? (
           <div className="flex items-center justify-between bg-stone-50 rounded-lg p-1">
             <button
@@ -75,6 +87,7 @@ export default function MenuItemCard({ id, name, description, priceCents, catego
             Add to Cart
           </button>
         )}
+        </div>
       </div>
     </div>
   );
