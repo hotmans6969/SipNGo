@@ -14,7 +14,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      user: { id: dbUser.id, email: dbUser.email, name: dbUser.name, role: dbUser.role },
+      user: { id: dbUser.id, email: dbUser.email, name: dbUser.name, role: dbUser.role, points: dbUser.points || 0 },
     });
   } catch {
     return NextResponse.json({ user: null }, { status: 401 });

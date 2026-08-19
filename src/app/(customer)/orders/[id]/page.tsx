@@ -153,7 +153,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <div className="bg-white rounded-2xl border border-stone-200 p-12">
           <h2 className="text-xl font-semibold text-stone-700 mb-2">{error || "Order not found"}</h2>
           <Link
-            href="/orders"
+            href="/cart"
             className="inline-block mt-4 text-amber-600 hover:text-amber-700 font-medium"
           >
             Back to Orders
@@ -193,8 +193,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       )}
 
       <div className="flex justify-between items-center mb-4">
-        <Link href="/orders" className="text-amber-600 hover:text-amber-700 font-medium text-sm inline-block">
-          &larr; Back to Orders
+        <Link href="/cart" className="text-amber-600 hover:text-amber-700 font-medium text-sm inline-block">
+          &larr; Back
         </Link>
         {typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && (
           <button 

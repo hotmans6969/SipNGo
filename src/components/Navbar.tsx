@@ -46,7 +46,7 @@ export default function Navbar() {
             <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Cart</span>
           </Link>
 
-          <Link href={user ? "/orders" : "/auth/login"} className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${isActive("/orders") || isActive("/auth") || isActive("/admin") ? "text-amber-500" : "text-stone-400 hover:text-stone-600"}`}>
+          <Link href={user ? "/account" : "/auth/login"} className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${isActive("/account") || isActive("/auth") || isActive("/admin") ? "text-amber-500" : "text-stone-400 hover:text-stone-600"}`}>
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>

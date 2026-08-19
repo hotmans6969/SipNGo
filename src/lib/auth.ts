@@ -53,7 +53,7 @@ export async function requireAdmin(): Promise<UserPayload> {
 
 export function getUserFromDb(id: string) {
   const db = getDb();
-  return db.prepare("SELECT id, email, name, role, created_at FROM users WHERE id = ?").get(id) as
-    | (UserPayload & { created_at: string })
+  return db.prepare("SELECT id, email, name, role, points, created_at FROM users WHERE id = ?").get(id) as
+    | (UserPayload & { created_at: string; points: number })
     | undefined;
 }

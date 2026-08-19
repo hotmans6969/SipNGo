@@ -7,6 +7,7 @@ interface User {
   email: string;
   name: string;
   role: "customer" | "admin" | "staff";
+  points?: number;
 }
 
 interface AuthContextType {

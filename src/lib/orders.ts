@@ -129,6 +129,15 @@ export function getUserOrders(userId: string) {
 
 export function updateOrderStatus(orderId: string, status: string): OrderRow | null {
   const db = getDb();
+  
+  if (status === "paid") {
+    const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId) as OrderRow;
+    if (order && order.status !== "paid" && order.status === "pending_payment") {
+      const points = Math.floor(order.total_cents / 100);
+      db.prepare("UPDATE users SET points = COALESCE(points, 0) + ? WHERE id = ?").run(points, order.user_id);
+    }
+  }
+
   db.prepare("UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, orderId);
   return db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId) as OrderRow | null;
 }
@@ -143,6 +152,13 @@ export function updateOrderStripeSession(orderId: string, sessionId: string): vo
 
 export function updateOrderPaymentIntent(orderId: string, paymentIntent: string): void {
   const db = getDb();
+  
+  const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId) as OrderRow;
+  if (order && order.status !== "paid" && order.status === "pending_payment") {
+    const points = Math.floor(order.total_cents / 100);
+    db.prepare("UPDATE users SET points = COALESCE(points, 0) + ? WHERE id = ?").run(points, order.user_id);
+  }
+
   db.prepare(
     "UPDATE orders SET stripe_payment_intent = ?, status = 'paid', updated_at = datetime('now') WHERE id = ?"
   ).run(paymentIntent, orderId);
