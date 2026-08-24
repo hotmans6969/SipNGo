@@ -5,6 +5,9 @@ import { getMalaysiaDateString } from "./dates";
 export interface CartItem {
   menuItemId: string;
   quantity: number;
+  sugarLevel?: string;
+  temperature?: string;
+  remark?: string;
 }
 
 export interface OrderRow {
@@ -28,6 +31,9 @@ export interface OrderItemRow {
   name: string;
   price_cents: number;
   quantity: number;
+  sugar_level: string | null;
+  temperature: string | null;
+  remark: string | null;
 }
 
 export function getNextOrderNumber(): number {
@@ -64,12 +70,19 @@ export function createOrder(userId: string, items: CartItem[]): OrderRow {
 
   // Calculate total
   let totalCents = 0;
-  const orderItems: Array<{ id: string; menuItem: (typeof menuItems)[0]; quantity: number }> = [];
+  const orderItems: Array<{ id: string; menuItem: (typeof menuItems)[0]; quantity: number; sugarLevel: string | undefined; temperature: string | undefined; remark: string | undefined }> = [];
   for (const cartItem of items) {
     const menuItem = menuItems.find((m) => m.id === cartItem.menuItemId);
     if (!menuItem) throw new Error(`Menu item ${cartItem.menuItemId} not found`);
-    totalCents += menuItem.price_cents * cartItem.quantity;
-    orderItems.push({ id: uuidv4(), menuItem, quantity: cartItem.quantity });
+    // Ice add on is handled by frontend price, but we should make sure the price in menu is updated or we just trust the total?
+    // Wait, the CartItem interface has priceCents in frontend, but backend calculates price from menuItems!
+    // So if it's iced, the backend needs to add 100 cents (RM 1).
+    let itemPrice = menuItem.price_cents;
+    if (cartItem.temperature === "iced") {
+      itemPrice += 100; // RM 1 for iced
+    }
+    totalCents += itemPrice * cartItem.quantity;
+    orderItems.push({ id: uuidv4(), menuItem: { ...menuItem, price_cents: itemPrice }, quantity: cartItem.quantity, sugarLevel: cartItem.sugarLevel, temperature: cartItem.temperature, remark: cartItem.remark });
   }
 
   // Insert order and items in a transaction
@@ -79,14 +92,14 @@ export function createOrder(userId: string, items: CartItem[]): OrderRow {
   `);
 
   const insertItem = db.prepare(`
-    INSERT INTO order_items (id, order_id, menu_item_id, name, price_cents, quantity)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO order_items (id, order_id, menu_item_id, name, price_cents, quantity, sugar_level, temperature, remark)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const transaction = db.transaction(() => {
     insertOrder.run(orderId, userId, orderNumber, today, totalCents, qrToken);
     for (const item of orderItems) {
-      insertItem.run(item.id, orderId, item.menuItem.id, item.menuItem.name, item.menuItem.price_cents, item.quantity);
+      insertItem.run(item.id, orderId, item.menuItem.id, item.menuItem.name, item.menuItem.price_cents, item.quantity, item.sugarLevel || null, item.temperature || null, item.remark || null);
     }
   });
 

@@ -156,25 +156,36 @@ export default function CartPage() {
         <>
           <div className="bg-white rounded-2xl border border-stone-200 divide-y divide-stone-100">
             {items.map((item) => (
-              <div key={item.menuItemId} className="p-5 flex items-center gap-4">
+              <div key={item.id} className="p-5 flex items-center gap-4">
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-stone-900 truncate">{item.name}</h3>
-                  <p className="text-sm text-stone-500 capitalize">{item.category}</p>
-                  <p className="text-amber-600 font-semibold mt-1">
+                  <div className="text-sm text-stone-500 capitalize leading-relaxed space-y-0.5 mt-1">
+                    <p>{item.category}</p>
+                    {(item.temperature || item.sugarLevel) && (
+                      <p className="text-xs space-x-2">
+                        {item.temperature && <span className="bg-stone-100 px-2 py-0.5 rounded-full">{item.temperature === "iced" ? "\u2744\uFE0F Iced" : "\u2615 Hot"}</span>}
+                        {item.sugarLevel && <span className="bg-stone-100 px-2 py-0.5 rounded-full">{item.sugarLevel} sugar</span>}
+                      </p>
+                    )}
+                    {item.remark && (
+                      <p className="text-xs italic text-stone-400 mt-1">Note: {item.remark}</p>
+                    )}
+                  </div>
+                  <p className="text-amber-600 font-semibold mt-2">
                     {formatPrice(item.priceCents * item.quantity)}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => updateQuantity(item.menuItemId, item.quantity - 1)}
+                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
                     className="w-8 h-8 flex items-center justify-center rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50 transition-colors"
                   >
                     -
                   </button>
                   <span className="w-8 text-center font-semibold text-stone-900">{item.quantity}</span>
                   <button
-                    onClick={() => updateQuantity(item.menuItemId, item.quantity + 1)}
+                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
                     className="w-8 h-8 flex items-center justify-center rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors"
                   >
                     +
@@ -182,7 +193,7 @@ export default function CartPage() {
                 </div>
 
                 <button
-                  onClick={() => removeItem(item.menuItemId)}
+                  onClick={() => removeItem(item.id)}
                   className="text-stone-400 hover:text-red-500 transition-colors ml-2"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -221,44 +232,7 @@ export default function CartPage() {
         </>
       )}
 
-      {/* Orders Section Below Cart */}
-      {user && orders.length > 0 && (
-        <div className="mt-12">
-          <h2 className="text-2xl font-bold text-stone-900 mb-6">My Orders</h2>
-          <div className="space-y-4">
-            {orders.map((order) => (
-              <Link
-                key={order.id}
-                href={`/orders/${order.id}`}
-                className="block bg-white rounded-xl border border-stone-200 p-5 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start justify-between gap-4 mb-3">
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg font-bold text-stone-900">
-                        Order #{String(order.order_number).padStart(3, "0")}
-                      </span>
-                      <StatusBadge status={order.status} />
-                    </div>
-                    <p className="text-sm text-stone-400 mt-1">
-                      {formatMalaysiaDateTime(order.created_at)}
-                    </p>
-                  </div>
-                  <span className="font-bold text-amber-600 text-lg">{formatPrice(order.total_cents)}</span>
-                </div>
-
-                <div className="text-sm text-stone-500">
-                  {order.items.map((item) => (
-                    <span key={item.id} className="inline-block mr-3">
-                      {item.quantity}x {item.name}
-                    </span>
-                  ))}
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
+

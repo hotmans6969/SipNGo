@@ -11,7 +11,7 @@ export async function GET() {
     }
 
     const db = getDb();
-    const items = db.prepare("SELECT * FROM menu_items ORDER BY category, name").all();
+    const items = db.prepare("SELECT * FROM menu_items WHERE category NOT IN ('food', 'pastries') ORDER BY category, name").all();
     return NextResponse.json({ items });
   } catch (error) {
     console.error("Admin menu fetch error:", error);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 
 interface QRScannerProps {
@@ -10,6 +10,12 @@ interface QRScannerProps {
 
 export default function QRScanner({ onScanSuccess, onClose }: QRScannerProps) {
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
+
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(onClose, 200);
+  };
 
   useEffect(() => {
     // Initialize the scanner
@@ -40,16 +46,17 @@ export default function QRScanner({ onScanSuccess, onClose }: QRScannerProps) {
   }, [onScanSuccess]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
-      <div className="bg-white rounded-2xl max-w-sm w-full overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div 
+        className={`fixed inset-0 bg-black/70 transition-opacity duration-200 ${isClosing ? "opacity-0" : "opacity-100"}`}
+        onClick={handleClose}
+      />
+      <div className={`bg-white rounded-2xl max-w-sm w-full overflow-hidden shadow-xl relative z-10 transition-all duration-200 transform ${
+        isClosing ? "scale-95 opacity-0" : "scale-100 opacity-100 translate-y-0"
+      }`}>
         <div className="flex items-center justify-between p-4 border-b border-stone-100 bg-stone-50">
           <h3 className="font-bold text-stone-900">Scan Customer QR Code</h3>
-          <button 
-            onClick={onClose}
-            className="text-stone-400 hover:text-stone-700 w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-200 transition-colors"
-          >
-            ✕
-          </button>
+          <button onClick={handleClose} className="text-stone-400 hover:text-stone-700 w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-200 transition-colors">{'\u2715'}</button>
         </div>
         <div className="p-4">
           <div id="qr-reader" className="w-full rounded-xl overflow-hidden shadow-sm border border-stone-200"></div>
@@ -61,3 +68,4 @@ export default function QRScanner({ onScanSuccess, onClose }: QRScannerProps) {
     </div>
   );
 }
+

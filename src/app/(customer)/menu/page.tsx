@@ -51,7 +51,7 @@ export default function MenuPage() {
       {/* Event/Offer Banner */}
       <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-6 mb-8 text-white shadow-md">
         <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-3 inline-block">Special Offer</span>
-        <h2 className="text-2xl font-bold mb-1">Buy 1 Get 1 Free on all Coffee! ☕</h2>
+        <h2 className="text-2xl font-bold mb-1">Buy 1 Get 1 Free on all Coffee! {'\u2615'}</h2>
         <p className="text-amber-50 opacity-90">Celebrate this week with double the energy. Available while supplies last.</p>
       </div>
 
@@ -102,3 +102,4 @@ export default function MenuPage() {
     </div>
   );
 }
+

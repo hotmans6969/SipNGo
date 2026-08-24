@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const db = getDb();
     const items = db
-      .prepare("SELECT * FROM menu_items WHERE available = 1 ORDER BY category, name")
+      .prepare("SELECT * FROM menu_items WHERE available = 1 AND category NOT IN ('food', 'pastries') ORDER BY category, name")
       .all();
 
     return NextResponse.json({ items });

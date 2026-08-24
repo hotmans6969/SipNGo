@@ -3,18 +3,22 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 
 export interface CartItem {
+  id: string; // unique id for cart item, because same menu item can have different customizations
   menuItemId: string;
   name: string;
   priceCents: number;
   quantity: number;
   category: string;
+  sugarLevel?: string;
+  temperature?: string;
+  remark?: string;
 }
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (item: Omit<CartItem, "quantity">) => void;
-  removeItem: (menuItemId: string) => void;
-  updateQuantity: (menuItemId: string, quantity: number) => void;
+  addItem: (item: Omit<CartItem, "quantity" | "id">) => void;
+  removeItem: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
   totalCents: number;
   totalItems: number;
@@ -44,28 +48,34 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
   }, [items]);
 
-  const addItem = useCallback((item: Omit<CartItem, "quantity">) => {
+  const addItem = useCallback((item: Omit<CartItem, "quantity" | "id">) => {
     setItems((prev) => {
-      const existing = prev.find((i) => i.menuItemId === item.menuItemId);
+      // Find if we already have this exact configuration
+      const existing = prev.find(
+        (i) => i.menuItemId === item.menuItemId && i.sugarLevel === item.sugarLevel && i.temperature === item.temperature && i.remark === item.remark
+      );
+      
       if (existing) {
         return prev.map((i) =>
-          i.menuItemId === item.menuItemId ? { ...i, quantity: i.quantity + 1 } : i
+          i.id === existing.id ? { ...i, quantity: i.quantity + 1 } : i
         );
       }
-      return [...prev, { ...item, quantity: 1 }];
+      
+      const newId = Math.random().toString(36).substring(2, 9);
+      return [...prev, { ...item, id: newId, quantity: 1 }];
     });
   }, []);
 
-  const removeItem = useCallback((menuItemId: string) => {
-    setItems((prev) => prev.filter((i) => i.menuItemId !== menuItemId));
+  const removeItem = useCallback((id: string) => {
+    setItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
-  const updateQuantity = useCallback((menuItemId: string, quantity: number) => {
+  const updateQuantity = useCallback((id: string, quantity: number) => {
     if (quantity <= 0) {
-      setItems((prev) => prev.filter((i) => i.menuItemId !== menuItemId));
+      setItems((prev) => prev.filter((i) => i.id !== id));
     } else {
       setItems((prev) =>
-        prev.map((i) => (i.menuItemId === menuItemId ? { ...i, quantity } : i))
+        prev.map((i) => (i.id === id ? { ...i, quantity } : i))
       );
     }
   }, []);
