@@ -137,10 +137,10 @@ export default function MenuManagePage() {
   if (authLoading || loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-stone-200 rounded w-48" />
+        <div className="space-y-4">
+          <div className="h-8 skeleton rounded w-48" />
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-16 bg-stone-200 rounded-xl" />
+            <div key={i} className="h-16 skeleton rounded-xl" />
           ))}
         </div>
       </div>

@@ -139,9 +139,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   if (authLoading || loading) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-12">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-stone-200 rounded w-48" />
-          <div className="h-64 bg-stone-200 rounded-xl" />
+        <div className="space-y-4">
+          <div className="h-8 skeleton rounded w-48" />
+          <div className="h-64 skeleton rounded-xl" />
         </div>
       </div>
     );
@@ -173,7 +173,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <h4 className="font-bold text-lg text-amber-400 mb-1">{toast.title}</h4>
               <p className="text-sm opacity-90">{toast.message}</p>
             </div>
-            <button onClick={() => setToast(null)} className="text-stone-400 hover:text-white">✕</button>
+            <button
+              onClick={() => setToast(null)}
+              aria-label="Dismiss notification"
+              className="text-stone-400 hover:text-white transition-all hover:scale-110 active:scale-90"
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}
@@ -231,7 +237,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </div>
             <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                className={`h-full bg-amber-500 rounded-full transition-[width] duration-700 ease-out ${
+                  order.status === "preparing" ? "animate-pulse" : ""
+                }`}
                 style={{
                   width:
                     order.status === "pending_payment"
@@ -263,7 +271,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             {/* A runtime-generated data: URL — next/image has nothing to
                 optimise here and would need unoptimized anyway. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qrCode} alt="Pickup QR Code" className="w-56 h-56" />
+            <img src={qrCode} alt="Pickup QR Code" className="w-56 h-56 animate-scale-in" />
           </div>
           <div className="mt-4 bg-amber-50 rounded-lg p-3">
             <p className="text-amber-800 font-bold text-2xl">
@@ -297,7 +305,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 // silently fail
               }
             }}
-            className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-8 py-3 rounded-xl transition-colors"
+            className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-8 py-3 rounded-xl transition-all active:scale-95"
           >
             Pay {formatPrice(order.total_cents)}
           </button>

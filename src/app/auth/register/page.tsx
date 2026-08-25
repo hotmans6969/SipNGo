@@ -44,12 +44,12 @@ export default function RegisterPage() {
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-8 animate-scale-in">
           <h1 className="text-2xl font-bold text-stone-900 mb-1">Create an account</h1>
           <p className="text-stone-500 mb-6">Join SipNGo to start ordering</p>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm animate-fade-in-up">
               {error}
             </div>
           )}
