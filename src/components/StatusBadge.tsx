@@ -14,10 +14,24 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 };
 
 export default function StatusBadge({ status }: StatusBadgeProps) {
-  const config = statusConfig[status] || { label: status, className: "bg-stone-100 text-stone-600 border-stone-300" };
+  const config = statusConfig[status] || {
+    label: status,
+    className: "bg-stone-100 text-stone-600 border-stone-300",
+  };
+
+  // "Ready" is the only status a customer is actively waiting for, so it is
+  // the only one that keeps moving. Animating the rest would just be noise on
+  // a screen that refreshes every few seconds.
+  //
+  // animate-ready-pulse already includes the scale-in entrance, because two
+  // animate-* utilities on one element clobber each other.
+  const entrance = status === "ready" ? "animate-ready-pulse" : "animate-scale-in";
 
   return (
-    <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full border ${config.className}`}>
+    <span
+      key={status}
+      className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full border ${config.className} ${entrance}`}
+    >
       {config.label}
     </span>
   );

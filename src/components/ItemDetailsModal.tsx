@@ -52,15 +52,22 @@ export default function ItemDetailsModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div 
-        className={`fixed inset-0 bg-black/60 transition-opacity duration-200 ${isClosing ? "opacity-0" : "opacity-100"}`}
+      <div
+        className={`fixed inset-0 bg-black/60 transition-opacity duration-200 ${
+          isClosing ? "opacity-0" : "animate-fade-in opacity-100"
+        }`}
         onClick={handleClose}
       />
       
       {/* Modal */}
-      <div 
-        className={`bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden relative z-10 flex flex-col max-h-[90vh] transition-all duration-200 transform ${
-          isClosing ? "scale-95 opacity-0" : "scale-100 opacity-100 translate-y-0"
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={name}
+        className={`bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden relative z-10 flex flex-col max-h-[90vh] ${
+          isClosing
+            ? "scale-95 opacity-0 transition-all duration-200"
+            : "animate-scale-in"
         }`}
       >
         {imageUrl && (

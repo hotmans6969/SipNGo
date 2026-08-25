@@ -184,10 +184,10 @@ export default function AdminDashboard() {
   if (authLoading || loading) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-12">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-stone-200 rounded w-48" />
+        <div className="space-y-4">
+          <div className="h-8 skeleton rounded w-48" />
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-20 bg-stone-200 rounded-xl" />
+            <div key={i} className="h-20 skeleton rounded-xl" />
           ))}
         </div>
       </div>
@@ -265,13 +265,13 @@ export default function AdminDashboard() {
           <p className="text-stone-400 text-lg">No orders found</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4 stagger-children">
           {orders.map((order) => (
             <div
               key={order.id}
-              className={`bg-white rounded-xl border p-5 transition-shadow ${
+              className={`bg-white rounded-xl border p-5 transition-all duration-300 ${
                 order.status === "paid" 
-                  ? "border-amber-400 shadow-md shadow-amber-100 bg-amber-50/10"
+                  ? "border-amber-400 shadow-md shadow-amber-100 bg-amber-50/10 animate-attention-pulse"
                   : order.status === "ready"
                   ? "border-green-300 shadow-md shadow-green-100"
                   : order.status === "preparing"

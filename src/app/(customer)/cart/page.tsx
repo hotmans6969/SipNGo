@@ -157,9 +157,9 @@ export default function CartPage() {
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-2xl border border-stone-200 divide-y divide-stone-100">
+          <div className="bg-white rounded-2xl border border-stone-200 divide-y divide-stone-100 stagger-children">
             {items.map((item) => (
-              <div key={item.id} className="p-5 flex items-center gap-4">
+              <div key={item.id} className="p-5 flex items-center gap-4 transition-colors hover:bg-stone-50/60">
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-stone-900 truncate">{item.name}</h3>
                   <div className="text-sm text-stone-500 capitalize leading-relaxed space-y-0.5 mt-1">
@@ -182,14 +182,16 @@ export default function CartPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50 transition-colors"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50 transition-all active:scale-90"
                   >
                     -
                   </button>
-                  <span className="w-8 text-center font-semibold text-stone-900">{item.quantity}</span>
+                  <span key={item.quantity} className="w-8 text-center font-semibold text-stone-900 animate-pop">
+                    {item.quantity}
+                  </span>
                   <button
                     onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-all active:scale-90"
                   >
                     +
                   </button>
@@ -197,7 +199,7 @@ export default function CartPage() {
 
                 <button
                   onClick={() => removeItem(item.id)}
-                  className="text-stone-400 hover:text-red-500 transition-colors ml-2"
+                  className="text-stone-400 hover:text-red-500 transition-all hover:scale-110 active:scale-90 ml-2"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -220,7 +222,7 @@ export default function CartPage() {
             <button
               onClick={handleCheckout}
               disabled={loading}
-              className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-bold text-lg rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-bold text-lg rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
             >
               {loading ? "Processing..." : user ? `Pay ${formatPrice(totalCents)}` : "Login to Checkout"}
             </button>

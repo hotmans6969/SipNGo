@@ -34,11 +34,11 @@ export default function MenuPage() {
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-12">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-stone-200 rounded w-48" />
+        <div className="space-y-4">
+          <div className="h-8 skeleton rounded w-48" />
           <div className="grid md:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-48 bg-stone-200 rounded-xl" />
+              <div key={i} className="h-48 skeleton rounded-xl" />
             ))}
           </div>
         </div>
@@ -85,7 +85,10 @@ export default function MenuPage() {
           <p className="text-stone-400 text-lg">No items found in this category</p>
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div
+          key={activeCategory}
+          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 stagger-children"
+        >
           {filtered.map((item) => (
             <MenuItemCard
               key={item.id}

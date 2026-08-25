@@ -29,7 +29,7 @@ export default function MenuItemCard({ id, name, description, priceCents, catego
   return (
     <>
       <div 
-        className="bg-white rounded-xl border border-stone-200 flex flex-col justify-between hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-pointer overflow-hidden"
+        className="bg-white rounded-xl border border-stone-200 flex flex-col justify-between hover:shadow-lg hover:border-amber-200 transition-all duration-200 transform hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] cursor-pointer overflow-hidden group"
         onClick={() => setShowModal(true)}
       >
         {imageUrl && (
@@ -38,7 +38,7 @@ export default function MenuItemCard({ id, name, description, priceCents, catego
             <img
               src={imageUrl}
               alt={name}
-              className="w-full h-full object-cover transition-transform hover:scale-105"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             />
           </div>
         )}

@@ -31,12 +31,12 @@ export default function LoginPage() {
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-8 animate-scale-in">
           <h1 className="text-2xl font-bold text-stone-900 mb-1">Welcome back</h1>
           <p className="text-stone-500 mb-6">Log in to your SipNGo account</p>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm animate-fade-in-up">
               {error}
             </div>
           )}
@@ -75,7 +75,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
             >
               {loading ? "Logging in..." : "Log In"}
             </button>

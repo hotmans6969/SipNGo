@@ -16,8 +16,8 @@ export default function AccountPage() {
   if (authLoading) {
     return (
       <div className="max-w-md mx-auto px-4 py-12">
-        <div className="animate-pulse space-y-4">
-          <div className="h-32 bg-stone-200 rounded-2xl" />
+        <div className="space-y-4">
+          <div className="h-32 skeleton rounded-2xl" />
         </div>
       </div>
     );
