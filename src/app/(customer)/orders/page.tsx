@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import StatusBadge from "@/components/StatusBadge";
 import { formatMalaysiaDateTime } from "@/lib/dates";
+import { formatPrice } from "@/lib/format";
 
 interface OrderItem {
   id: string;
@@ -28,24 +29,30 @@ interface Order {
 
 export default function OrdersPage() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [orders, setOrders] = useState<Order[]>([]);
+  // `null` means "not fetched yet", which lets loading be derived rather than
+  // tracked in a second piece of state that has to be set from inside an effect.
+  const [fetchedOrders, setFetchedOrders] = useState<Order[] | null>(null);
+  const orders = fetchedOrders ?? [];
+  const loading = !!user && fetchedOrders === null;
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    if (!user) return;
 
+    let cancelled = false;
     fetch("/api/orders")
       .then((res) => res.json())
       .then((data) => {
-        setOrders(data.orders || []);
+        if (!cancelled) setFetchedOrders(data.orders || []);
       })
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) setFetchedOrders([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
-  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
 
   if (loading) {
     return (

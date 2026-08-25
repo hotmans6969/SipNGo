@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main, hardening]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npx eslint .
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          # Build-time placeholders. Real values come from the deploy target.
+          JWT_SECRET: ci-build-secret-not-used-at-runtime
+          NEXT_PUBLIC_APP_URL: http://localhost:3000

@@ -1,41 +1,96 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStripe, isStripeConfigured } from "@/lib/stripe";
-import { getOrderByStripeSession, updateOrderPaymentIntent } from "@/lib/orders";
 import Stripe from "stripe";
+import { getStripe } from "@/lib/stripe";
+import { getOrder, getOrderByStripeSession, markOrderPaid, updateOrderStatus } from "@/lib/orders";
+import { isPaymentSimulated } from "@/lib/env";
+
+/**
+ * Resolves the order a session belongs to. client_reference_id is set at
+ * checkout; the session lookup is the fallback for older sessions.
+ */
+function resolveOrderId(session: Stripe.Checkout.Session): string | null {
+  const reference = session.client_reference_id ?? session.metadata?.order_id;
+  if (reference && getOrder(reference)) return reference;
+  return getOrderByStripeSession(session.id)?.id ?? null;
+}
 
 export async function POST(request: NextRequest) {
-  if (!isStripeConfigured()) {
+  if (isPaymentSimulated()) {
     return NextResponse.json({ received: true });
   }
 
-  const stripe = getStripe();
-  const body = await request.text();
-  const sig = request.headers.get("stripe-signature");
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-  if (!sig || !webhookSecret) {
+  const signature = request.headers.get("stripe-signature");
+  if (!signature || !webhookSecret) {
     return NextResponse.json({ error: "Missing signature or webhook secret" }, { status: 400 });
   }
 
+  const body = await request.text();
+
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
+    event = getStripe().webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("Webhook signature verification failed:", message);
-    return NextResponse.json({ error: `Webhook Error: ${message}` }, { status: 400 });
+    return NextResponse.json({ error: "Webhook signature verification failed" }, { status: 400 });
   }
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    const order = getOrderByStripeSession(session.id);
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const orderId = resolveOrderId(session);
+        if (orderId) {
+          const paymentIntent =
+            typeof session.payment_intent === "string"
+              ? session.payment_intent
+              : session.payment_intent?.id ?? "";
+          // Idempotent: a replayed event will not award points twice.
+          markOrderPaid(orderId, paymentIntent);
+        }
+        break;
+      }
 
-    if (order && order.status === "pending_payment") {
-      updateOrderPaymentIntent(
-        order.id,
-        typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id || ""
-      );
+      case "checkout.session.expired": {
+        // The customer abandoned checkout. Release the order so it does not
+        // sit in pending_payment forever.
+        const session = event.data.object as Stripe.Checkout.Session;
+        const orderId = resolveOrderId(session);
+        const order = orderId ? getOrder(orderId) : null;
+        if (order && order.status === "pending_payment") {
+          updateOrderStatus(order.id, "cancelled");
+        }
+        break;
+      }
+
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge;
+        const intentId =
+          typeof charge.payment_intent === "string"
+            ? charge.payment_intent
+            : charge.payment_intent?.id;
+        if (intentId) {
+          // Cancelling reverses the loyalty points through the ledger.
+          const { default: getDb } = await import("@/lib/db");
+          const row = getDb()
+            .prepare("SELECT id, status FROM orders WHERE stripe_payment_intent = ?")
+            .get(intentId) as { id: string; status: string } | undefined;
+          if (row && row.status !== "cancelled" && row.status !== "picked_up") {
+            updateOrderStatus(row.id, "cancelled");
+          }
+        }
+        break;
+      }
+
+      default:
+        break;
     }
+  } catch (error) {
+    // Returning 500 tells Stripe to retry, which is what we want for a
+    // transient failure. The signature was already verified at this point.
+    console.error(`Webhook handler failed for ${event.type}:`, error);
+    return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });

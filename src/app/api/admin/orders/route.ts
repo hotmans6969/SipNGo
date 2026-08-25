@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getAllOrders } from "@/lib/orders";
+import { parseQuery, orderQuerySchema } from "@/lib/validation";
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,11 +10,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status") || undefined;
-    const orders = getAllOrders(status);
+    const { data, error } = parseQuery(request, orderQuerySchema);
+    if (error) return error;
 
-    return NextResponse.json({ orders });
+    const { orders, total } = getAllOrders({
+      status: data.status,
+      date: data.date,
+      limit: data.limit,
+      offset: data.offset,
+    });
+
+    return NextResponse.json({ orders, total, limit: data.limit, offset: data.offset });
   } catch (error) {
     console.error("Admin get orders error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

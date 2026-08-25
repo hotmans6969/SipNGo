@@ -1,36 +1,143 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SipNGo
 
-## Getting Started
+Order-ahead app for a drinks kiosk. Customers browse the menu, customise a
+drink, pay in-app, and collect with a QR code. Staff work a live order board and
+scan the code to close the order out.
 
-First, run the development server:
+Built with Next.js 16 (App Router), SQLite via `better-sqlite3`, Stripe
+Checkout, and Capacitor for the Android wrapper.
+
+---
+
+## Getting started
+
+```bash
+npm install
+cp .env.example .env.local
+```
+
+Generate a signing key and put it in `.env.local` as `JWT_SECRET`:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+```
+
+Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` to create the first admin account, then:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The database file is created and migrated automatically on first request, and
+a starter drinks menu is seeded if the menu is empty.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `JWT_SECRET` | yes | Signs session cookies. The app refuses to start without it. |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | first run | Seeds the initial admin. Both or neither; password must be 12+ characters. |
+| `STRIPE_SECRET_KEY` | production | Live payments. Absent outside production, payments are simulated. |
+| `STRIPE_WEBHOOK_SECRET` | production | Verifies incoming webhooks. |
+| `NEXT_PUBLIC_APP_URL` | yes | Used to build Stripe return URLs. |
+| `ICED_SURCHARGE_CENTS` | no | Surcharge for an iced drink, in sen. Defaults to `100`. |
+| `DATABASE_PATH` | no | Overrides the SQLite file location. |
+| `CAPACITOR_SERVER_URL` | no | Points the Android wrapper at a dev server. |
+| `EXTRA_DEV_ORIGINS` | no | Comma-separated extra origins Next accepts in dev (tunnels, LAN IPs). |
 
-## Learn More
+`.env.local` is gitignored and must stay that way. Never commit it, and never
+commit `sipngo.db` — it contains real customer records.
 
-To learn more about Next.js, take a look at the following resources:
+## Payments
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+With no `STRIPE_SECRET_KEY` set, checkout marks the order paid without charging
+anything. This is for local development only: in production the app raises a
+startup error rather than silently giving orders away.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Point a Stripe webhook at `POST /api/webhook` and set `STRIPE_WEBHOOK_SECRET`.
+Handled events:
 
-## Deploy on Vercel
+- `checkout.session.completed` — marks the order paid and awards loyalty points
+- `checkout.session.expired` — cancels an abandoned order
+- `charge.refunded` — cancels the order and reverses its points
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Award and reversal both go through the `points_ledger` table, which has a
+`UNIQUE (order_id, reason)` constraint, so a replayed webhook cannot
+double-credit an account.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Order lifecycle
+
+```
+pending_payment ──▶ paid ──▶ preparing ──▶ ready ──▶ picked_up
+       │             │           │
+       └─────────────┴───────────┴──▶ cancelled
+```
+
+Transitions are enforced server-side in `src/lib/order-status.ts`. An order
+cannot move backwards, and `picked_up` and `cancelled` are terminal. Customers
+may cancel their own order while it is `pending_payment` or `paid`; after that
+it is a staff action. **Cancelling a paid order does not issue a Stripe refund
+— that is still a manual step in the Stripe dashboard.**
+
+## Database
+
+SQLite, one file, migrated on boot by an ordered list in `src/lib/db.ts`.
+Migrations are append-only and tracked in `schema_migrations`; never edit one
+that has shipped, add a new entry instead.
+
+> **Deployment constraint:** `better-sqlite3` writes to the local filesystem, so
+> this app must run on a single long-lived instance with persistent disk (a VPS,
+> Fly.io with a volume, a Raspberry Pi in the shop). It will **not** work on
+> Vercel or any serverless platform — the filesystem there is read-only and
+> per-instance, so orders would vanish. Moving to Turso/libSQL or Postgres is
+> the path to serverless hosting.
+
+## Commands
+
+```bash
+npm run dev        # development server
+npm run build      # production build
+npm start          # serve the production build
+npm test           # unit and integration tests
+npm run typecheck  # tsc --noEmit
+npm run lint       # eslint
+```
+
+## Android wrapper
+
+```bash
+CAPACITOR_SERVER_URL=http://192.168.1.20:3000 npx cap sync android
+npx cap open android
+```
+
+Leave `CAPACITOR_SERVER_URL` unset for a release build so the app does not point
+at somebody's laptop. `public/.well-known/assetlinks.json` holds the Digital
+Asset Links for the TWA.
+
+## Project layout
+
+```
+src/
+  app/
+    (customer)/     menu, cart, orders, account
+    admin/          live order board, menu management
+    api/            route handlers
+  components/       shared UI
+  context/          auth and cart providers
+  hooks/            usePolling — visibility-aware polling
+  lib/
+    auth.ts         JWT signing, session cookies, role guards
+    db.ts           connection, migrations, admin seed
+    env.ts          validated environment access
+    orders.ts       order creation, status changes, points ledger
+    order-status.ts the status state machine
+    rate-limit.ts   login and signup throttling
+    validation.ts   zod schemas for every request body
+```
+
+## Known gaps
+
+- Loyalty points accrue and display a tier, but there is no way to redeem them.
+- Refunds must be issued by hand in Stripe.
+- No store opening hours: orders can be placed at any time of day.
+- No email receipts.

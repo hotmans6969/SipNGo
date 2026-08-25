@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { createOrder, getUserOrders } from "@/lib/orders";
+import { createOrder, getUserOrders, OrderError } from "@/lib/orders";
+import { parseBody, parseQuery, createOrderSchema, orderQuerySchema } from "@/lib/validation";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const orders = getUserOrders(user.id);
+    const { data, error } = parseQuery(request, orderQuerySchema);
+    if (error) return error;
+
+    const orders = getUserOrders(user.id, { limit: data.limit, offset: data.offset });
     return NextResponse.json({ orders });
   } catch (error) {
     console.error("Get orders error:", error);
@@ -24,24 +28,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { items } = await request.json();
+    const { data, error } = await parseBody(request, createOrderSchema);
+    if (error) return error;
 
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
-    }
-
-    // Validate each item
-    for (const item of items) {
-      if (!item.menuItemId || !item.quantity || item.quantity < 1) {
-        return NextResponse.json({ error: "Invalid cart item" }, { status: 400 });
-      }
-    }
-
-    const order = createOrder(user.id, items);
+    const order = createOrder(user.id, data.items);
     return NextResponse.json({ order }, { status: 201 });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Internal server error";
+  } catch (error) {
+    // Only OrderError carries a message meant for the customer. Anything else
+    // is an internal fault and must not be echoed back.
+    if (error instanceof OrderError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Create order error:", error);
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

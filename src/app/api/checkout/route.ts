@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { getOrderWithItems, updateOrderStripeSession, updateOrderStatus } from "@/lib/orders";
-import { getStripe, isStripeConfigured } from "@/lib/stripe";
+import {
+  getOrderWithItems,
+  updateOrderStripeSession,
+  updateOrderStatus,
+  OrderError,
+} from "@/lib/orders";
+import { getStripe } from "@/lib/stripe";
+import { isPaymentSimulated } from "@/lib/env";
+import { CURRENCY } from "@/lib/format";
+import { parseBody, checkoutSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,28 +18,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { orderId } = await request.json();
+    const { data, error } = await parseBody(request, checkoutSchema);
+    if (error) return error;
 
-    if (!orderId) {
-      return NextResponse.json({ error: "Order ID is required" }, { status: 400 });
-    }
-
-    const order = getOrderWithItems(orderId);
+    const order = getOrderWithItems(data.orderId);
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
-
     if (order.user_id !== user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-
     if (order.status !== "pending_payment") {
-      return NextResponse.json({ error: "Order has already been paid" }, { status: 400 });
+      return NextResponse.json({ error: "This order has already been paid" }, { status: 409 });
     }
 
-    // If Stripe is not configured, simulate payment (dev mode)
-    if (!isStripeConfigured()) {
-      updateOrderStatus(orderId, "paid");
+    // Simulated payment is only reachable outside production; isPaymentSimulated
+    // throws if a production deploy is missing its Stripe key, rather than
+    // quietly handing out free orders.
+    if (isPaymentSimulated()) {
+      updateOrderStatus(order.id, "paid");
       return NextResponse.json({
         success: true,
         mode: "demo",
@@ -40,37 +45,39 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create Stripe Checkout Session
     const stripe = getStripe();
-    const origin = request.headers.get("origin") || "http://localhost:3000";
 
-    const lineItems = order.items.map((item) => ({
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: item.name,
-        },
-        unit_amount: item.price_cents,
-      },
-      quantity: item.quantity,
-    }));
+    // Built from our own configured URL, not a client-supplied Origin header.
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(
+      /\/$/,
+      ""
+    );
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
-      line_items: lineItems,
+      line_items: order.items.map((item) => ({
+        price_data: {
+          currency: CURRENCY,
+          product_data: { name: item.name },
+          unit_amount: item.price_cents,
+        },
+        quantity: item.quantity,
+      })),
       mode: "payment",
-      success_url: `${origin}/orders/${order.id}?payment=success`,
-      cancel_url: `${origin}/orders/${order.id}?payment=cancelled`,
-      metadata: {
-        order_id: order.id,
-        user_id: user.id,
-      },
+      success_url: `${appUrl}/orders/${order.id}?payment=success`,
+      cancel_url: `${appUrl}/orders/${order.id}?payment=cancelled`,
+      // Used to reconcile the webhook back to this order.
+      client_reference_id: order.id,
+      metadata: { order_id: order.id, user_id: user.id },
     });
 
-    updateOrderStripeSession(orderId, session.id);
+    updateOrderStripeSession(order.id, session.id);
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
+    if (error instanceof OrderError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Checkout error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
