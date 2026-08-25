@@ -39,6 +39,12 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install the SDK packages this project targets
+        # variables.gradle pins compileSdk/targetSdk to 36. Installing them up
+        # front makes the build deterministic instead of relying on Gradle's
+        # auto-download.
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
       - run: npm ci
 
       - name: Sync Capacitor
@@ -51,7 +57,12 @@ jobs:
 
       - name: Build debug APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        # Git on Windows does not record the executable bit, so gradlew can
+        # arrive here unexecutable. The mode is fixed in the repository too;
+        # this keeps the build working regardless.
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Name the artifact after the commit
         id: name
