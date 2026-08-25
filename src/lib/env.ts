@@ -4,21 +4,22 @@
  * falling back to an insecure default.
  */
 
-function required(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(
-      `${name} is not set. Copy .env.example to .env.local and fill it in.`
-    );
-  }
-  return value;
-}
-
 export const isProduction = process.env.NODE_ENV === "production";
 
-/** Signing key for session JWTs. No fallback — an unset secret is fatal. */
-export function getJwtSecret(): string {
-  return required("JWT_SECRET");
+/**
+ * Signing key for session JWTs, or null when the environment does not set one.
+ *
+ * Returning null rather than throwing lets lib/auth generate and persist a
+ * random key per installation. What must never come back is the old behaviour
+ * of falling back to a constant committed to the repository.
+ */
+export function getConfiguredJwtSecret(): string | null {
+  const value = process.env.JWT_SECRET;
+  if (!value) return null;
+  if (value.length < 32) {
+    throw new Error("JWT_SECRET must be at least 32 characters.");
+  }
+  return value;
 }
 
 /** Credentials for the one-time admin seed. Both must be set, or neither. */

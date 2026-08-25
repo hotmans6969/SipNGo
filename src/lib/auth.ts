@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
-import getDb from "./db";
-import { getJwtSecret, isProduction } from "./env";
+import crypto from "node:crypto";
+import getDb, { getOrCreateConfigValue } from "./db";
+import { getConfiguredJwtSecret, isProduction } from "./env";
 
 export const AUTH_COOKIE = "auth_token";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
@@ -13,17 +14,33 @@ export interface UserPayload {
   role: "customer" | "admin" | "staff";
 }
 
+/**
+ * The key used to sign sessions.
+ *
+ * JWT_SECRET is preferred, because it survives the database being recreated
+ * and can be shared across instances. When it is absent the app generates a
+ * random key for this installation and stores it, rather than falling back to
+ * a constant baked into the source — that constant was readable by anyone with
+ * the repository and let them mint their own admin sessions.
+ */
+function sessionSecret(): string {
+  return (
+    getConfiguredJwtSecret() ??
+    getOrCreateConfigValue("jwt_secret", () => crypto.randomBytes(48).toString("base64url"))
+  );
+}
+
 export function signToken(user: UserPayload): string {
   return jwt.sign(
     { id: user.id, email: user.email, name: user.name, role: user.role },
-    getJwtSecret(),
+    sessionSecret(),
     { expiresIn: "7d" }
   );
 }
 
 export function verifyToken(token: string): UserPayload | null {
   try {
-    return jwt.verify(token, getJwtSecret()) as UserPayload;
+    return jwt.verify(token, sessionSecret()) as UserPayload;
   } catch {
     return null;
   }

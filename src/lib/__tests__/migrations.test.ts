@@ -1,5 +1,6 @@
 import { describe, it, expect, afterAll } from "vitest";
 import Database from "better-sqlite3";
+import bcrypt from "bcryptjs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -14,7 +15,13 @@ import path from "node:path";
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sipngo-migration-"));
 
 afterAll(() => {
-  fs.rmSync(tempDir, { recursive: true, force: true });
+  // Windows keeps a lock on the file briefly after close; a failed cleanup of
+  // a temp directory should not fail the run.
+  try {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  } catch {
+    // left for the OS to reap
+  }
 });
 
 /** Recreates the shape of a database as it existed before this change. */
@@ -101,7 +108,7 @@ describe("migrating a pre-existing database", () => {
     delete process.env.ADMIN_EMAIL;
     delete process.env.ADMIN_PASSWORD;
 
-    const { default: getDb } = await import("../db");
+    const { default: getDb, getOrCreateConfigValue } = await import("../db");
     const db = getDb();
 
     // Columns the app queries all exist.
@@ -141,11 +148,25 @@ describe("migrating a pre-existing database", () => {
     const menuCount = db.prepare("SELECT COUNT(*) c FROM menu_items").get() as { c: number };
     expect(menuCount.c).toBe(1);
 
-    // With no ADMIN_EMAIL configured, no admin is invented.
+    // With no ADMIN_EMAIL configured the app still needs a way in, so it
+    // creates one admin with a generated password and logs it once.
     const admins = db.prepare("SELECT COUNT(*) c FROM users WHERE role = 'admin'").get() as {
       c: number;
     };
-    expect(admins.c).toBe(0);
+    expect(admins.c).toBe(1);
+
+    // Crucially that password must not be a constant anyone could look up.
+    const admin = db
+      .prepare("SELECT password_hash FROM users WHERE role = 'admin'")
+      .get() as { password_hash: string };
+    expect(bcrypt.compareSync("admin123", admin.password_hash)).toBe(false);
+
+    // The generated session key is random per installation, not a shared
+    // constant, and is stable across calls.
+    const first = getOrCreateConfigValue("jwt_secret", () => "generated-a");
+    const second = getOrCreateConfigValue("jwt_secret", () => "generated-b");
+    expect(first).toBe(second);
+    expect(first.length).toBeGreaterThan(0);
 
     const applied = db.prepare("SELECT COUNT(*) c FROM schema_migrations").get() as { c: number };
     expect(applied.c).toBeGreaterThan(0);

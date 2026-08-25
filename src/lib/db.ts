@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import path from "path";
+import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { getAdminSeed } from "./env";
@@ -172,6 +173,21 @@ const MIGRATIONS: Array<{ version: number; name: string; up: (d: Database.Databa
       d.exec("CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)");
     },
   },
+  {
+    version: 7,
+    name: "app_config",
+    up: (d) => {
+      // Holds values generated for this installation, such as a session
+      // signing key when the environment does not supply one.
+      d.exec(`
+        CREATE TABLE IF NOT EXISTS app_config (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+    },
+  },
 ];
 
 function migrate(database: Database.Database): void {
@@ -204,18 +220,49 @@ function migrate(database: Database.Database): void {
 }
 
 /**
+ * Reads a generated value, creating it on first use.
+ *
+ * This is how the app supplies its own session signing key when the
+ * environment does not provide one. The value is random per installation and
+ * lives in the database rather than the repository, so it is nothing like the
+ * shared constant this replaced — but a key set through JWT_SECRET is still
+ * preferable, because it survives the database being recreated.
+ */
+export function getOrCreateConfigValue(key: string, generate: () => string): string {
+  const database = getDb();
+  const existing = database.prepare("SELECT value FROM app_config WHERE key = ?").get(key) as
+    | { value: string }
+    | undefined;
+  if (existing) return existing.value;
+
+  const value = generate();
+  // INSERT OR IGNORE plus a re-read, so two simultaneous first requests agree.
+  database.prepare("INSERT OR IGNORE INTO app_config (key, value) VALUES (?, ?)").run(key, value);
+  return (
+    database.prepare("SELECT value FROM app_config WHERE key = ?").get(key) as { value: string }
+  ).value;
+}
+
+/**
  * Creates the initial admin from ADMIN_EMAIL / ADMIN_PASSWORD, once.
  * If those are unset no admin is created — promote a user by hand instead.
  * Existing admin accounts are never modified.
  */
 function seedAdmin(database: Database.Database): void {
-  const seed = getAdminSeed();
-  if (!seed) return;
-
   const existing = database
     .prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1")
     .get();
   if (existing) return;
+
+  const configured = getAdminSeed();
+
+  // With nothing configured, create an admin with a random password and print
+  // it once. Without this a fresh deployment has no way in at all; printing a
+  // generated password to the server log is safer than shipping a known one.
+  const seed = configured ?? {
+    email: "admin@sipngo.com",
+    password: crypto.randomBytes(12).toString("base64url"),
+  };
 
   const emailTaken = database
     .prepare("SELECT id FROM users WHERE email = ?")
@@ -230,6 +277,24 @@ function seedAdmin(database: Database.Database): void {
       "INSERT INTO users (id, email, name, password_hash, role) VALUES (?, ?, ?, ?, 'admin')"
     )
     .run(uuidv4(), seed.email, "Admin", bcrypt.hashSync(seed.password, 12));
+
+  if (!configured) {
+    console.warn(
+      [
+        "",
+        "  ==================================================================",
+        "   No ADMIN_EMAIL / ADMIN_PASSWORD set, so an admin was created:",
+        "",
+        `     email:    ${seed.email}`,
+        `     password: ${seed.password}`,
+        "",
+        "   This is shown once. Set ADMIN_EMAIL and ADMIN_PASSWORD to choose",
+        "   your own, or sign in and change it.",
+        "  ==================================================================",
+        "",
+      ].join("\n")
+    );
+  }
 }
 
 export default getDb;

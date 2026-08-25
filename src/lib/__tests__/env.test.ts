@@ -22,17 +22,25 @@ afterEach(() => {
   process.env = { ...ORIGINAL };
 });
 
-describe("getJwtSecret", () => {
-  it("throws rather than falling back to a default", async () => {
+describe("getConfiguredJwtSecret", () => {
+  it("reports no secret rather than inventing a shared default", async () => {
     delete process.env.JWT_SECRET;
-    const { getJwtSecret } = await import("../env");
-    expect(() => getJwtSecret()).toThrow(/JWT_SECRET is not set/);
+    const { getConfiguredJwtSecret } = await import("../env");
+    // null tells lib/auth to generate a key for this installation. What must
+    // never happen is a constant that is identical across every deployment.
+    expect(getConfiguredJwtSecret()).toBeNull();
   });
 
-  it("returns the configured secret", async () => {
-    process.env.JWT_SECRET = "a-real-secret";
-    const { getJwtSecret } = await import("../env");
-    expect(getJwtSecret()).toBe("a-real-secret");
+  it("returns a configured secret of sufficient length", async () => {
+    process.env.JWT_SECRET = "a-real-secret-that-is-long-enough-to-use";
+    const { getConfiguredJwtSecret } = await import("../env");
+    expect(getConfiguredJwtSecret()).toBe("a-real-secret-that-is-long-enough-to-use");
+  });
+
+  it("rejects a secret short enough to brute force", async () => {
+    process.env.JWT_SECRET = "short";
+    const { getConfiguredJwtSecret } = await import("../env");
+    expect(() => getConfiguredJwtSecret()).toThrow(/at least 32 characters/);
   });
 });
 

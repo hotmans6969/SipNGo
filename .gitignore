@@ -32,8 +32,9 @@ yarn-error.log*
 
 # env files — never commit real values
 .env*
-# ...but the template must be committed
+# ...but the template and the non-secret production defaults are committed
 !.env.example
+!.env.production
 
 # vercel
 .vercel
