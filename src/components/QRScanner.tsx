@@ -33,8 +33,8 @@ export default function QRScanner({ onScanSuccess, onClose }: QRScannerProps) {
         }
         onScanSuccess(decodedText);
       },
-      (error) => {
-        // ignore scan errors, they happen continuously until a code is found
+      () => {
+        // Scan errors fire continuously until a code is in frame.
       }
     );
 

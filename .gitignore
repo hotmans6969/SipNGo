@@ -30,8 +30,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — never commit real values
 .env*
+# ...but the template and the non-secret production defaults are committed
+!.env.example
+!.env.production
 
 # vercel
 .vercel
@@ -39,3 +42,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local database (never commit — contains real customer data)
+*.db
+*.db-wal
+*.db-shm

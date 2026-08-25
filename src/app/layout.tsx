@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import Navbar from "@/components/Navbar";
+import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,18 +20,27 @@ export const viewport: Viewport = {
   themeColor: "#f59e0b",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // Pinch-zoom is left enabled: disabling it fails WCAG 1.4.4 and blocks
+  // anyone who needs to magnify the menu.
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {
   title: "SipNGo - Order Drinks & Food",
   description: "Order your favorite drinks and food, pay in-app, and pick up with your QR code.",
-  manifest: "/manifest.json",
+  // Next serves app/manifest.ts at /manifest.webmanifest, not /manifest.json.
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "SipNGo",
+  },
+  icons: {
+    icon: [
+      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512x512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
   },
   formatDetection: {
     telephone: false,
@@ -43,21 +53,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <head>
-        <link rel="apple-touch-icon" href="/icon-192.png" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js');
-                });
-              }
-            `,
-          }}
-        />
-      </head>
       <body className="min-h-full flex flex-col bg-stone-50 text-stone-900">
+        <ServiceWorkerRegistrar />
         <AuthProvider>
           <CartProvider>
             <Navbar />

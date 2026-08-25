@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import StatusBadge from "@/components/StatusBadge";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatMalaysiaDateTime } from "@/lib/dates";
+import { formatPrice } from "@/lib/format";
+import { usePolling } from "@/hooks/usePolling";
 
 interface OrderItem {
   id: string;
@@ -82,59 +84,57 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  // Poll for status changes
-  useEffect(() => {
-    if (!order || order.status === "picked_up" || order.status === "cancelled") return;
+  // Poll for status changes while the order is still in flight, and only
+  // while the tab is visible.
+  const isLive = !!order && order.status !== "picked_up" && order.status !== "cancelled";
 
-    const interval = setInterval(() => {
-      fetch(`/api/orders/${id}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.order) {
-            // Check if status changed
-            if (data.order.status !== order.status) {
-              let title = "";
-              let body = "";
-              
-              if (data.order.status === "preparing") {
-                title = "Order Preparing! 👩🍳";
-                body = `Order #${data.order.order_number} has been accepted and is now being prepared.`;
-              } else if (data.order.status === "ready") {
-                title = "Order Ready! ☕";
-                body = `Your order #${data.order.order_number} is ready for pickup!`;
-              }
-
-              if (title) {
-                // 1. In-app toast overlay
-                setToast({ title, message: body });
-                setTimeout(() => setToast(null), 5000);
-
-                // 2. OS-level Push if permitted
-                if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-                  new Notification(title, { body });
-                }
-              }
+  const refreshOrder = useCallback(() => {
+    fetch(`/api/orders/${id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.order) {
+          // Check if status changed
+          if (order && data.order.status !== order.status) {
+            let title = "";
+            let body = "";
+            
+            if (data.order.status === "preparing") {
+              title = "Order Preparing! 👩🍳";
+              body = `Order #${data.order.order_number} has been accepted and is now being prepared.`;
+            } else if (data.order.status === "ready") {
+              title = "Order Ready! ☕";
+              body = `Your order #${data.order.order_number} is ready for pickup!`;
             }
 
-            setOrder(data.order);
-            // Fetch QR if newly paid
-            if (["paid", "preparing", "ready"].includes(data.order.status) && !qrCode) {
-              fetch(`/api/orders/${id}/qrcode`)
-                .then((res) => res.json())
-                .then((qrData) => {
-                  if (qrData.qrCode) setQrCode(qrData.qrCode);
-                })
-                .catch(() => {});
+            if (title) {
+              // 1. In-app toast overlay
+              setToast({ title, message: body });
+              setTimeout(() => setToast(null), 5000);
+
+              // 2. OS-level Push if permitted
+              if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+                new Notification(title, { body });
+              }
             }
           }
-        })
-        .catch(() => {});
-    }, 2000);
 
-    return () => clearInterval(interval);
-  }, [id, order, qrCode]);
+          setOrder(data.order);
+          // Fetch QR if newly paid
+          if (["paid", "preparing", "ready"].includes(data.order.status) && !qrCode) {
+            fetch(`/api/orders/${id}/qrcode`)
+              .then((res) => res.json())
+              .then((qrData) => {
+                if (qrData.qrCode) setQrCode(qrData.qrCode);
+              })
+              .catch(() => {});
+          }
+        }
+      })
+      .catch(() => {});
+  }, [id, qrCode, order]);
 
-  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
+  usePolling(refreshOrder, 5000, isLive);
+
 
   if (authLoading || loading) {
     return (
@@ -260,6 +260,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               : "Show this QR code at the counter when your order is ready."}
           </p>
           <div className="inline-block bg-white p-4 rounded-xl border-2 border-stone-100">
+            {/* A runtime-generated data: URL — next/image has nothing to
+                optimise here and would need unoptimized anyway. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={qrCode} alt="Pickup QR Code" className="w-56 h-56" />
           </div>
           <div className="mt-4 bg-amber-50 rounded-lg p-3">

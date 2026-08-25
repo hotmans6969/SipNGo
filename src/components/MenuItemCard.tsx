@@ -1,8 +1,8 @@
 "use client";
 
-import { useCart } from "@/context/CartContext";
 import { useState } from "react";
 import ItemDetailsModal from "./ItemDetailsModal";
+import { formatPrice } from "@/lib/format";
 
 interface MenuItemCardProps {
   id: string;
@@ -16,7 +16,6 @@ interface MenuItemCardProps {
 export default function MenuItemCard({ id, name, description, priceCents, category, imageUrl }: MenuItemCardProps) {
   const [showModal, setShowModal] = useState(false);
 
-  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
 
   const categoryStyles: Record<string, string> = {
     coffee: "bg-amber-100 text-amber-800",

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useCart } from "@/context/CartContext";
+import { formatPrice } from "@/lib/format";
 
 interface ItemDetailsModalProps {
   id: string;
@@ -47,7 +48,6 @@ export default function ItemDetailsModal({
   };
 
   const calculatedPrice = temperature === "iced" ? priceCents + 100 : priceCents;
-  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

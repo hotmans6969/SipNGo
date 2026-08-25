@@ -1,8 +1,11 @@
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
-import getDb from "./db";
+import crypto from "node:crypto";
+import getDb, { getOrCreateConfigValue } from "./db";
+import { getConfiguredJwtSecret, isProduction } from "./env";
 
-const JWT_SECRET = process.env.JWT_SECRET || "sipngo-secret-key-change-in-production-2024";
+export const AUTH_COOKIE = "auth_token";
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
 export interface UserPayload {
   id: string;
@@ -11,26 +14,52 @@ export interface UserPayload {
   role: "customer" | "admin" | "staff";
 }
 
+/**
+ * The key used to sign sessions.
+ *
+ * JWT_SECRET is preferred, because it survives the database being recreated
+ * and can be shared across instances. When it is absent the app generates a
+ * random key for this installation and stores it, rather than falling back to
+ * a constant baked into the source — that constant was readable by anyone with
+ * the repository and let them mint their own admin sessions.
+ */
+function sessionSecret(): string {
+  return (
+    getConfiguredJwtSecret() ??
+    getOrCreateConfigValue("jwt_secret", () => crypto.randomBytes(48).toString("base64url"))
+  );
+}
+
 export function signToken(user: UserPayload): string {
   return jwt.sign(
     { id: user.id, email: user.email, name: user.name, role: user.role },
-    JWT_SECRET,
+    sessionSecret(),
     { expiresIn: "7d" }
   );
 }
 
 export function verifyToken(token: string): UserPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as UserPayload;
-    return decoded;
+    return jwt.verify(token, sessionSecret()) as UserPayload;
   } catch {
     return null;
   }
 }
 
+/** Cookie options shared by login, register, and logout so they can't drift. */
+export function sessionCookieOptions(maxAge: number = SESSION_MAX_AGE_SECONDS) {
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: "lax" as const,
+    maxAge,
+    path: "/",
+  };
+}
+
 export async function getCurrentUser(): Promise<UserPayload | null> {
   const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
+  const token = cookieStore.get(AUTH_COOKIE)?.value;
   if (!token) return null;
   return verifyToken(token);
 }
@@ -53,7 +82,9 @@ export async function requireAdmin(): Promise<UserPayload> {
 
 export function getUserFromDb(id: string) {
   const db = getDb();
-  return db.prepare("SELECT id, email, name, role, points, created_at FROM users WHERE id = ?").get(id) as
-    | (UserPayload & { created_at: string; points: number })
-    | undefined;
+  return db
+    .prepare(
+      "SELECT id, email, name, role, points, created_at FROM users WHERE id = ?"
+    )
+    .get(id) as (UserPayload & { created_at: string; points: number }) | undefined;
 }

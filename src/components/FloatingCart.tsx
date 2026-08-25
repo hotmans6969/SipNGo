@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { usePathname } from "next/navigation";
+import { formatPrice } from "@/lib/format";
 
 export default function FloatingCart() {
   const { totalItems, totalCents } = useCart();
@@ -17,7 +18,6 @@ export default function FloatingCart() {
     return null;
   }
 
-  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
 
   return (
     <Link

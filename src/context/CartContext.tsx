@@ -31,11 +31,14 @@ const CART_STORAGE_KEY = "sipngo_cart";
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  // Load cart from localStorage on mount
+  // Load cart from localStorage on mount. This has to run after mount rather
+  // than as a lazy initial state, or the server-rendered HTML and the first
+  // client render disagree and hydration fails.
   useEffect(() => {
     try {
       const stored = localStorage.getItem(CART_STORAGE_KEY);
       if (stored) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
         setItems(JSON.parse(stored));
       }
     } catch {

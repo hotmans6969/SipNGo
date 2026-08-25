@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { formatPrice } from "@/lib/format";
 
 interface MenuItem {
   id: string;
@@ -30,15 +31,6 @@ export default function MenuManagePage() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user || user.role !== "admin") {
-      router.push("/");
-      return;
-    }
-    fetchItems();
-  }, [user, authLoading, router]);
-
   const fetchItems = async () => {
     const res = await fetch("/api/admin/menu");
     const data = await res.json();
@@ -46,7 +38,18 @@ export default function MenuManagePage() {
     setLoading(false);
   };
 
-  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user || user.role !== "admin") {
+      router.push("/");
+      return;
+    }
+    // Initial load once the admin role is confirmed.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchItems();
+  }, [user, authLoading, router]);
+
+
 
   const resetForm = () => {
     setFormData({ name: "", description: "", priceStr: "", category: "coffee" });

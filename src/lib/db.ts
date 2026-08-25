@@ -1,131 +1,300 @@
 import Database from "better-sqlite3";
 import path from "path";
+import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
+import { v4 as uuidv4 } from "uuid";
+import { getAdminSeed } from "./env";
+import { seedMenuIfEmpty } from "./seed-menu";
 
-const DB_PATH = path.join(process.cwd(), "sipngo.db");
+const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), "sipngo.db");
 
-let db: Database.Database;
+let db: Database.Database | undefined;
 
 function getDb(): Database.Database {
   if (!db) {
     db = new Database(DB_PATH);
     db.pragma("journal_mode = WAL");
     db.pragma("foreign_keys = ON");
-    initializeDb(db);
+    migrate(db);
+    seedAdmin(db);
+    seedMenuIfEmpty(db);
   }
   return db;
 }
 
-function initializeDb(database: Database.Database): void {
-  database.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'customer' CHECK (role IN ('customer', 'admin', 'staff')),
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+/** True if `table` already has `column`. Used to keep ALTERs idempotent. */
+function hasColumn(database: Database.Database, table: string, column: string): boolean {
+  const columns = database
+    .prepare(`PRAGMA table_info(${table})`)
+    .all() as Array<{ name: string }>;
+  return columns.some((c) => c.name === column);
+}
 
-    CREATE TABLE IF NOT EXISTS menu_items (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      description TEXT NOT NULL DEFAULT '',
-      price_cents INTEGER NOT NULL,
-      category TEXT NOT NULL DEFAULT 'drinks',
-      image_url TEXT NOT NULL DEFAULT '',
-      available INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS orders (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      order_number INTEGER NOT NULL,
-      order_date TEXT NOT NULL DEFAULT (date('now')),
-      status TEXT NOT NULL DEFAULT 'pending_payment' CHECK (
-        status IN ('pending_payment', 'paid', 'preparing', 'ready', 'picked_up', 'cancelled')
-      ),
-      total_cents INTEGER NOT NULL,
-      stripe_session_id TEXT,
-      stripe_payment_intent TEXT,
-      qr_token TEXT UNIQUE,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS order_items (
-      id TEXT PRIMARY KEY,
-      order_id TEXT NOT NULL,
-      menu_item_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      price_cents INTEGER NOT NULL,
-      quantity INTEGER NOT NULL DEFAULT 1,
-      FOREIGN KEY (order_id) REFERENCES orders(id),
-      FOREIGN KEY (menu_item_id) REFERENCES menu_items(id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
-    CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
-    CREATE INDEX IF NOT EXISTS idx_orders_qr_token ON orders(qr_token);
-    CREATE INDEX IF NOT EXISTS idx_orders_order_date ON orders(order_date);
-    CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
-  `);
-
-  // Seed default admin user if none exists
-  const adminExists = database.prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1").get();
-  if (!adminExists) {
-    // We'll create admin on first run via the seed function
-    seedData(database);
+function addColumnIfMissing(
+  database: Database.Database,
+  table: string,
+  column: string,
+  definition: string
+): void {
+  if (!hasColumn(database, table, column)) {
+    database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
 }
 
-function seedData(database: Database.Database): void {
-  const bcrypt = require("bcryptjs");
-  const { v4: uuidv4 } = require("uuid");
+/**
+ * Ordered, append-only migrations. Each runs at most once, tracked in the
+ * `schema_migrations` table. Never edit a migration that has shipped — add a
+ * new one instead.
+ *
+ * Migrations that add columns are written defensively, because databases
+ * created before this system existed already have some of those columns.
+ */
+const MIGRATIONS: Array<{ version: number; name: string; up: (d: Database.Database) => void }> = [
+  {
+    version: 1,
+    name: "base_schema",
+    up: (d) => {
+      d.exec(`
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          email TEXT UNIQUE NOT NULL,
+          name TEXT NOT NULL,
+          password_hash TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'customer' CHECK (role IN ('customer', 'admin', 'staff')),
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
 
-  // Create admin user (password: admin123)
-  const adminId = uuidv4();
-  const adminHash = bcrypt.hashSync("admin123", 10);
-  database.prepare(
-    "INSERT OR IGNORE INTO users (id, email, name, password_hash, role) VALUES (?, ?, ?, ?, ?)"
-  ).run(adminId, "admin@sipngo.com", "Admin", adminHash, "admin");
+        CREATE TABLE IF NOT EXISTS menu_items (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT NOT NULL DEFAULT '',
+          price_cents INTEGER NOT NULL,
+          category TEXT NOT NULL DEFAULT 'drinks',
+          image_url TEXT NOT NULL DEFAULT '',
+          available INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
 
-  // Seed menu items
-  const menuItems = [
-    { name: "Espresso", description: "Rich and bold single shot espresso", price: 350, category: "coffee" },
-    { name: "Americano", description: "Espresso with hot water for a smooth finish", price: 400, category: "coffee" },
-    { name: "Cappuccino", description: "Espresso with steamed milk and foam", price: 500, category: "coffee" },
-    { name: "Latte", description: "Espresso with steamed milk, lightly foamed", price: 550, category: "coffee" },
-    { name: "Mocha", description: "Espresso with chocolate and steamed milk", price: 600, category: "coffee" },
-    { name: "Cold Brew", description: "Slow-steeped cold coffee, smooth and bold", price: 500, category: "coffee" },
-    { name: "Iced Matcha Latte", description: "Japanese matcha with cold milk over ice", price: 600, category: "tea" },
-    { name: "Chai Latte", description: "Spiced chai concentrate with steamed milk", price: 550, category: "tea" },
-    { name: "Green Tea", description: "Classic brewed green tea", price: 350, category: "tea" },
-    { name: "Earl Grey", description: "Black tea with bergamot oil", price: 350, category: "tea" },
-    { name: "Mango Smoothie", description: "Fresh mango blended with yogurt and ice", price: 650, category: "smoothies" },
-    { name: "Berry Blast Smoothie", description: "Mixed berries with banana and oat milk", price: 700, category: "smoothies" },
-    { name: "Fresh Orange Juice", description: "Freshly squeezed orange juice", price: 500, category: "juices" },
-    { name: "Lemonade", description: "House-made lemonade with fresh lemons", price: 450, category: "juices" },
-    { name: "Croissant", description: "Buttery, flaky French croissant", price: 400, category: "pastries" },
-    { name: "Blueberry Muffin", description: "Freshly baked muffin loaded with blueberries", price: 450, category: "pastries" },
-    { name: "Chocolate Chip Cookie", description: "Warm cookie with melted chocolate chips", price: 350, category: "pastries" },
-    { name: "Avocado Toast", description: "Sourdough toast with smashed avocado and seasoning", price: 800, category: "food" },
-    { name: "Ham & Cheese Sandwich", description: "Classic toasted sandwich with ham and Swiss cheese", price: 750, category: "food" },
-    { name: "Caesar Salad", description: "Romaine lettuce with caesar dressing and croutons", price: 850, category: "food" },
-  ];
+        CREATE TABLE IF NOT EXISTS orders (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          order_number INTEGER NOT NULL,
+          order_date TEXT NOT NULL DEFAULT (date('now')),
+          status TEXT NOT NULL DEFAULT 'pending_payment' CHECK (
+            status IN ('pending_payment', 'paid', 'preparing', 'ready', 'picked_up', 'cancelled')
+          ),
+          total_cents INTEGER NOT NULL,
+          stripe_session_id TEXT,
+          stripe_payment_intent TEXT,
+          qr_token TEXT UNIQUE,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        );
 
-  const insertMenu = database.prepare(
-    "INSERT OR IGNORE INTO menu_items (id, name, description, price_cents, category) VALUES (?, ?, ?, ?, ?)"
+        CREATE TABLE IF NOT EXISTS order_items (
+          id TEXT PRIMARY KEY,
+          order_id TEXT NOT NULL,
+          menu_item_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          price_cents INTEGER NOT NULL,
+          quantity INTEGER NOT NULL DEFAULT 1,
+          FOREIGN KEY (order_id) REFERENCES orders(id),
+          FOREIGN KEY (menu_item_id) REFERENCES menu_items(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+        CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+        CREATE INDEX IF NOT EXISTS idx_orders_qr_token ON orders(qr_token);
+        CREATE INDEX IF NOT EXISTS idx_orders_order_date ON orders(order_date);
+        CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
+      `);
+    },
+  },
+  {
+    version: 2,
+    name: "loyalty_points",
+    up: (d) => {
+      addColumnIfMissing(d, "users", "points", "INTEGER NOT NULL DEFAULT 0");
+    },
+  },
+  {
+    version: 3,
+    name: "order_item_customisations",
+    up: (d) => {
+      addColumnIfMissing(d, "order_items", "sugar_level", "TEXT");
+      addColumnIfMissing(d, "order_items", "temperature", "TEXT");
+      addColumnIfMissing(d, "order_items", "remark", "TEXT");
+    },
+  },
+  {
+    version: 4,
+    name: "login_attempts",
+    up: (d) => {
+      d.exec(`
+        CREATE TABLE IF NOT EXISTS login_attempts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          bucket TEXT NOT NULL,
+          attempted_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_login_attempts_bucket
+          ON login_attempts(bucket, attempted_at);
+      `);
+    },
+  },
+  {
+    version: 5,
+    name: "points_ledger",
+    up: (d) => {
+      // A ledger makes point awards idempotent and reversible. Without it,
+      // a replayed webhook could award the same order twice and a cancelled
+      // order could never be clawed back.
+      d.exec(`
+        CREATE TABLE IF NOT EXISTS points_ledger (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          order_id TEXT NOT NULL,
+          delta INTEGER NOT NULL,
+          reason TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE (order_id, reason),
+          FOREIGN KEY (user_id) REFERENCES users(id),
+          FOREIGN KEY (order_id) REFERENCES orders(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_points_ledger_user ON points_ledger(user_id);
+      `);
+    },
+  },
+  {
+    version: 6,
+    name: "order_created_at_index",
+    up: (d) => {
+      // The admin dashboard sorts every query by created_at.
+      d.exec("CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)");
+    },
+  },
+  {
+    version: 7,
+    name: "app_config",
+    up: (d) => {
+      // Holds values generated for this installation, such as a session
+      // signing key when the environment does not supply one.
+      d.exec(`
+        CREATE TABLE IF NOT EXISTS app_config (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+    },
+  },
+];
+
+function migrate(database: Database.Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  const applied = new Set(
+    (database.prepare("SELECT version FROM schema_migrations").all() as Array<{
+      version: number;
+    }>).map((r) => r.version)
   );
 
-  const insertMany = database.transaction((items: typeof menuItems) => {
-    for (const item of items) {
-      insertMenu.run(uuidv4(), item.name, item.description, item.price, item.category);
-    }
-  });
+  const record = database.prepare(
+    "INSERT INTO schema_migrations (version, name) VALUES (?, ?)"
+  );
 
-  insertMany(menuItems);
+  for (const migration of MIGRATIONS) {
+    if (applied.has(migration.version)) continue;
+    const run = database.transaction(() => {
+      migration.up(database);
+      record.run(migration.version, migration.name);
+    });
+    run();
+  }
+}
+
+/**
+ * Reads a generated value, creating it on first use.
+ *
+ * This is how the app supplies its own session signing key when the
+ * environment does not provide one. The value is random per installation and
+ * lives in the database rather than the repository, so it is nothing like the
+ * shared constant this replaced — but a key set through JWT_SECRET is still
+ * preferable, because it survives the database being recreated.
+ */
+export function getOrCreateConfigValue(key: string, generate: () => string): string {
+  const database = getDb();
+  const existing = database.prepare("SELECT value FROM app_config WHERE key = ?").get(key) as
+    | { value: string }
+    | undefined;
+  if (existing) return existing.value;
+
+  const value = generate();
+  // INSERT OR IGNORE plus a re-read, so two simultaneous first requests agree.
+  database.prepare("INSERT OR IGNORE INTO app_config (key, value) VALUES (?, ?)").run(key, value);
+  return (
+    database.prepare("SELECT value FROM app_config WHERE key = ?").get(key) as { value: string }
+  ).value;
+}
+
+/**
+ * Creates the initial admin from ADMIN_EMAIL / ADMIN_PASSWORD, once.
+ * If those are unset no admin is created — promote a user by hand instead.
+ * Existing admin accounts are never modified.
+ */
+function seedAdmin(database: Database.Database): void {
+  const existing = database
+    .prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1")
+    .get();
+  if (existing) return;
+
+  const configured = getAdminSeed();
+
+  // With nothing configured, create an admin with a random password and print
+  // it once. Without this a fresh deployment has no way in at all; printing a
+  // generated password to the server log is safer than shipping a known one.
+  const seed = configured ?? {
+    email: "admin@sipngo.com",
+    password: crypto.randomBytes(12).toString("base64url"),
+  };
+
+  const emailTaken = database
+    .prepare("SELECT id FROM users WHERE email = ?")
+    .get(seed.email);
+  if (emailTaken) {
+    database.prepare("UPDATE users SET role = 'admin' WHERE email = ?").run(seed.email);
+    return;
+  }
+
+  database
+    .prepare(
+      "INSERT INTO users (id, email, name, password_hash, role) VALUES (?, ?, ?, ?, 'admin')"
+    )
+    .run(uuidv4(), seed.email, "Admin", bcrypt.hashSync(seed.password, 12));
+
+  if (!configured) {
+    console.warn(
+      [
+        "",
+        "  ==================================================================",
+        "   No ADMIN_EMAIL / ADMIN_PASSWORD set, so an admin was created:",
+        "",
+        `     email:    ${seed.email}`,
+        `     password: ${seed.password}`,
+        "",
+        "   This is shown once. Set ADMIN_EMAIL and ADMIN_PASSWORD to choose",
+        "   your own, or sign in and change it.",
+        "  ==================================================================",
+        "",
+      ].join("\n")
+    );
+  }
 }
 
 export default getDb;

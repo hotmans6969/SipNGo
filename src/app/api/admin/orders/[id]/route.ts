@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { updateOrderStatus, getOrderWithItems, getOrderByQrToken } from "@/lib/orders";
+import { updateOrderStatus, getOrder, getOrderByQrToken, OrderError } from "@/lib/orders";
+import { parseBody, adminUpdateOrderSchema } from "@/lib/validation";
 
 export async function PATCH(
   request: NextRequest,
@@ -13,41 +14,30 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const { status, qrToken } = await request.json();
+    const { data, error } = await parseBody(request, adminUpdateOrderSchema);
+    if (error) return error;
 
-    // If qrToken is provided, verify it matches and handle pickup
-    if (qrToken) {
-      const order = getOrderByQrToken(qrToken);
-      if (!order || order.id !== id) {
+    // Pickup by QR scan: the token must belong to this order.
+    if (data.qrToken) {
+      const scanned = getOrderByQrToken(data.qrToken);
+      if (!scanned || scanned.id !== id) {
         return NextResponse.json({ error: "Invalid QR code" }, { status: 400 });
-      }
-      if (order.status !== "ready") {
-        return NextResponse.json(
-          { error: `Cannot mark as picked up. Order status is: ${order.status}` },
-          { status: 400 }
-        );
       }
       const updated = updateOrderStatus(id, "picked_up");
       return NextResponse.json({ order: updated });
     }
 
-    if (!status) {
-      return NextResponse.json({ error: "Status is required" }, { status: 400 });
-    }
-
-    const validStatuses = ["paid", "preparing", "ready", "picked_up", "cancelled"];
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
-    }
-
-    const order = getOrderWithItems(id);
-    if (!order) {
+    if (!getOrder(id)) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    const updated = updateOrderStatus(id, status);
+    // updateOrderStatus enforces the allowed transitions.
+    const updated = updateOrderStatus(id, data.status!);
     return NextResponse.json({ order: updated });
   } catch (error) {
+    if (error instanceof OrderError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Admin update order error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

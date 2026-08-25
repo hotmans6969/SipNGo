@@ -41,7 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // The session cookie is httpOnly, so the only way to learn who is signed in
+  // is to ask the server after mount.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
     refreshUser();
   }, [refreshUser]);
 

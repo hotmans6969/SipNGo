@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser, getUserFromDb } from "@/lib/auth";
+import { getCurrentUser, getUserFromDb, sessionCookieOptions, AUTH_COOKIE } from "@/lib/auth";
 
 export async function GET() {
   try {
@@ -23,12 +23,6 @@ export async function GET() {
 
 export async function DELETE() {
   const response = NextResponse.json({ success: true });
-  response.cookies.set("auth_token", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 0,
-    path: "/",
-  });
+  response.cookies.set(AUTH_COOKIE, "", sessionCookieOptions(0));
   return response;
 }

@@ -7,6 +7,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import QRScanner from "@/components/QRScanner";
 import { formatMalaysiaTime } from "@/lib/dates";
+import { formatPrice } from "@/lib/format";
+import { usePolling } from "@/hooks/usePolling";
 
 interface OrderItem {
   id: string;
@@ -27,9 +29,6 @@ interface AdminOrder {
   items: OrderItem[];
 }
 
-// A simple notification "ding" in base64
-const notificationSound = "data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExDQA/4PAAAAiAAAAGYAAAAAJgAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExFUAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExHUA8gO/wQAEgAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExJYAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
-
 export default function AdminDashboard() {
   const { user, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -48,7 +47,8 @@ export default function AdminDashboard() {
   const playNotification = useCallback(() => {
     try {
       if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        audioContextRef.current = new (window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       }
       
       const ctx = audioContextRef.current;
@@ -111,14 +111,14 @@ export default function AdminDashboard() {
       router.push("/");
       return;
     }
+    // Initial load only; refreshes after this come from usePolling below.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchOrders();
   }, [user, authLoading, router, fetchOrders]);
 
-  // Auto-refresh every 2 seconds
-  useEffect(() => {
-    const interval = setInterval(fetchOrders, 2000);
-    return () => clearInterval(interval);
-  }, [fetchOrders]);
+  // Refresh while the dashboard is on screen. Polling stops when the tab is
+  // hidden and resumes with an immediate fetch when it comes back.
+  usePolling(fetchOrders, 5000, !authLoading && !!user);
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     setUpdatingId(orderId);
@@ -166,14 +166,13 @@ export default function AdminDashboard() {
       } else {
         alert(resData.error || "Failed to complete order. Is it in 'Ready' status?");
       }
-    } catch (e) {
+    } catch {
       setScanError("Failed to parse QR Code");
     } finally {
       setUpdatingId(null);
     }
   };
 
-  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
 
   const statusActions: Record<string, { label: string; next: string; color: string }[]> = {
     paid: [{ label: "Start Preparing", next: "preparing", color: "bg-orange-500 hover:bg-orange-600 border border-orange-600 shadow-sm" }],

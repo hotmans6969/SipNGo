@@ -2,58 +2,72 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import getDb from "@/lib/db";
-import { signToken } from "@/lib/auth";
+import { signToken, sessionCookieOptions, AUTH_COOKIE } from "@/lib/auth";
+import { checkRateLimit, recordAttempt, clientIp } from "@/lib/rate-limit";
+import { parseBody, registerSchema } from "@/lib/validation";
+
+const PER_IP = { limit: 10, windowSeconds: 60 * 60 };
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, name, password } = await request.json();
+    const { data, error } = await parseBody(request, registerSchema);
+    if (error) return error;
 
-    if (!email || !name || !password) {
-      return NextResponse.json({ error: "Email, name, and password are required" }, { status: 400 });
+    const ipBucket = `register:ip:${clientIp(request)}`;
+    const limit = checkRateLimit(ipBucket, PER_IP.limit, PER_IP.windowSeconds);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Too many sign-up attempts. Please try again later." },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+      );
     }
-
-    if (password.length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
-    }
+    recordAttempt(ipBucket);
 
     const db = getDb();
 
-    // Check if user already exists
-    const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+    // The schema already lowercased and trimmed the address, so this check and
+    // the insert below agree on exactly one canonical form.
+    const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(data.email);
     if (existing) {
-      return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
+      return NextResponse.json(
+        { error: "An account with this email already exists" },
+        { status: 409 }
+      );
     }
 
     const id = uuidv4();
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(data.password, 12);
 
-    db.prepare("INSERT INTO users (id, email, name, password_hash, role) VALUES (?, ?, ?, ?, 'customer')").run(
+    try {
+      db.prepare(
+        "INSERT INTO users (id, email, name, password_hash, role) VALUES (?, ?, ?, ?, 'customer')"
+      ).run(id, data.email, data.name, passwordHash);
+    } catch (insertError) {
+      // Loses a race with a concurrent signup for the same address.
+      if (
+        insertError instanceof Error &&
+        insertError.message.includes("UNIQUE constraint failed")
+      ) {
+        return NextResponse.json(
+          { error: "An account with this email already exists" },
+          { status: 409 }
+        );
+      }
+      throw insertError;
+    }
+
+    const token = signToken({
       id,
-      email.toLowerCase().trim(),
-      name.trim(),
-      passwordHash
-    );
-
-    const token = signToken({ id, email: email.toLowerCase().trim(), name: name.trim(), role: "customer" });
-
-    const response = NextResponse.json(
-      { user: { id, email: email.toLowerCase().trim(), name: name.trim(), role: "customer" } },
-      { status: 201 }
-    );
-
-    response.cookies.set("auth_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: "/",
+      email: data.email,
+      name: data.name,
+      role: "customer",
     });
 
+    const response = NextResponse.json(
+      { user: { id, email: data.email, name: data.name, role: "customer" } },
+      { status: 201 }
+    );
+    response.cookies.set(AUTH_COOKIE, token, sessionCookieOptions());
     return response;
   } catch (error) {
     console.error("Registration error:", error);

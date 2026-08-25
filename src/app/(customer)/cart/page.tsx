@@ -2,11 +2,11 @@
 
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import StatusBadge from "@/components/StatusBadge";
-import { formatMalaysiaDateTime } from "@/lib/dates";
+import { formatPrice } from "@/lib/format";
+import { usePolling } from "@/hooks/usePolling";
 
 interface OrderItem {
   id: string;
@@ -30,10 +30,11 @@ export default function CartPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [, setOrders] = useState<Order[]>([]);
   const router = useRouter();
 
-  const formatPrice = (cents: number) => `RM ${(cents / 100).toFixed(2)}`;
+
+  const fetchOrdersRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -67,9 +68,11 @@ export default function CartPage() {
     };
 
     fetchOrders();
-    const interval = setInterval(fetchOrders, 2000);
-    return () => clearInterval(interval);
+    fetchOrdersRef.current = fetchOrders;
   }, [user]);
+
+  // Polling pauses while the tab is hidden.
+  usePolling(() => fetchOrdersRef.current?.(), 5000, !!user);
 
   const handleCheckout = async () => {
     if (!user) {
