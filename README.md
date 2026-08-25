@@ -114,16 +114,57 @@ npm run typecheck  # tsc --noEmit
 npm run lint       # eslint
 ```
 
-## Android wrapper
+## Android app
+
+`android/` is a Capacitor shell around the deployed site. It is not a copy of
+the app: it opens `https://sipngo-production.up.railway.app` in a native
+WebView with the SipNGo icon, splash screen, and no browser chrome.
+
+That distinction is the important one:
+
+| Change | What you do |
+| --- | --- |
+| Menu, prices, pages, styling, features, bug fixes | Push to `main`. Railway redeploys and **every installed phone shows it on next open.** No new APK. |
+| App icon, app name, permissions, the URL it points at | Rebuild the APK and reinstall. |
+
+So almost nothing needs a rebuild.
+
+### Getting an APK
+
+Push to `main`, or run **Actions → Build Android app → Run workflow** on
+GitHub. The finished APK is attached to that run as an artifact named
+`sipngo-debug-<commit>`. Download it, transfer it to the phone, and open it —
+Android will ask you to allow installing from this source.
+
+Building locally instead needs Android Studio and a JDK:
 
 ```bash
 CAPACITOR_SERVER_URL=http://192.168.1.20:3000 npx cap sync android
-npx cap open android
+cd android && ./gradlew assembleDebug
 ```
 
-Leave `CAPACITOR_SERVER_URL` unset for a release build so the app does not point
-at somebody's laptop. `public/.well-known/assetlinks.json` holds the Digital
-Asset Links for the TWA.
+Leave `CAPACITOR_SERVER_URL` unset to point at production. The APK lands in
+`android/app/build/outputs/apk/debug/`.
+
+> If Gradle fails with `PKIX path building failed`, something on the machine is
+> intercepting TLS — Norton and similar antivirus products do this — and the
+> JDK does not trust its certificate. Building through GitHub Actions avoids
+> this entirely.
+
+### Limitations
+
+- The app needs a network connection. It shows the live site, so there is no
+  offline mode beyond the service worker's cached icons.
+- This is a **debug-signed** APK: fine for installing directly on a phone, but
+  the Play Store needs a release build signed with your own upload key.
+- `public/.well-known/assetlinks.json` holds Digital Asset Links for a Trusted
+  Web Activity build, which is a separate packaging route from this one.
+
+### iOS
+
+Not set up. It needs a Mac with Xcode and a paid Apple Developer account;
+neither is available here. `npx cap add ios` on a Mac is the starting point,
+and the same Capacitor config applies.
 
 ## Project layout
 
