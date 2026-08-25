@@ -47,16 +47,28 @@ export function getIcedSurchargeCents(): number {
 }
 
 /**
- * Payments may be simulated only outside production. A production deploy with
- * no Stripe key would otherwise hand out free orders.
+ * Whether checkout should simulate payment instead of charging a card.
+ *
+ * A real Stripe key always wins. Outside production, a missing key simulates,
+ * which is what local development wants. In production simulation has to be
+ * asked for by name via ALLOW_SIMULATED_PAYMENTS, so a demo deployment can run
+ * without Stripe while a real deployment that merely loses its key fails loudly
+ * instead of quietly handing out free drinks.
  */
 export function isPaymentSimulated(): boolean {
-  const configured = !!process.env.STRIPE_SECRET_KEY;
-  if (configured) return false;
-  if (isProduction) {
+  if (process.env.STRIPE_SECRET_KEY) return false;
+
+  const explicitlyAllowed = process.env.ALLOW_SIMULATED_PAYMENTS === "true";
+  if (isProduction && !explicitlyAllowed) {
     throw new Error(
-      "STRIPE_SECRET_KEY is not set. Payment simulation is disabled in production."
+      "STRIPE_SECRET_KEY is not set. Set it to take real payments, or set " +
+        "ALLOW_SIMULATED_PAYMENTS=true to run this deployment in demo mode."
     );
   }
   return true;
+}
+
+/** True when orders are being placed without any real payment taking place. */
+export function isDemoDeployment(): boolean {
+  return isProduction && !process.env.STRIPE_SECRET_KEY;
 }

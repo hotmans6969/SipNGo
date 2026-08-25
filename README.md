@@ -38,6 +38,7 @@ a starter drinks menu is seeded if the menu is empty.
 | `JWT_SECRET` | yes | Signs session cookies. The app refuses to start without it. |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | first run | Seeds the initial admin. Both or neither; password must be 12+ characters. |
 | `STRIPE_SECRET_KEY` | production | Live payments. Absent outside production, payments are simulated. |
+| `ALLOW_SIMULATED_PAYMENTS` | no | Set to `true` to run a production deployment in demo mode with no real charges. |
 | `STRIPE_WEBHOOK_SECRET` | production | Verifies incoming webhooks. |
 | `NEXT_PUBLIC_APP_URL` | yes | Used to build Stripe return URLs. |
 | `ICED_SURCHARGE_CENTS` | no | Surcharge for an iced drink, in sen. Defaults to `100`. |
@@ -51,8 +52,18 @@ commit `sipngo.db` — it contains real customer records.
 ## Payments
 
 With no `STRIPE_SECRET_KEY` set, checkout marks the order paid without charging
-anything. This is for local development only: in production the app raises a
-startup error rather than silently giving orders away.
+anything. That is the default in development.
+
+In production the same situation is an error, because a real deployment that
+loses its Stripe key should fail loudly rather than quietly give orders away.
+A deliberate showcase deployment opts in instead:
+
+```
+ALLOW_SIMULATED_PAYMENTS=true
+```
+
+With that set, customers can place and track orders end to end without Stripe
+configured. Never set it on a deployment taking real money.
 
 Point a Stripe webhook at `POST /api/webhook` and set `STRIPE_WEBHOOK_SECRET`.
 Handled events:

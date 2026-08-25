@@ -47,12 +47,30 @@ describe("isPaymentSimulated", () => {
   it("refuses to simulate payment in production", async () => {
     setNodeEnv("production");
     delete process.env.STRIPE_SECRET_KEY;
+    delete process.env.ALLOW_SIMULATED_PAYMENTS;
     const { isPaymentSimulated } = await import("../env");
-    expect(() => isPaymentSimulated()).toThrow(/Payment simulation is disabled in production/);
+    expect(() => isPaymentSimulated()).toThrow(/ALLOW_SIMULATED_PAYMENTS=true/);
+  });
+
+  it("simulates payment in production only when explicitly opted in", async () => {
+    setNodeEnv("production");
+    delete process.env.STRIPE_SECRET_KEY;
+    process.env.ALLOW_SIMULATED_PAYMENTS = "true";
+    const { isPaymentSimulated } = await import("../env");
+    expect(isPaymentSimulated()).toBe(true);
+  });
+
+  it("does not accept a fuzzy opt-in value", async () => {
+    setNodeEnv("production");
+    delete process.env.STRIPE_SECRET_KEY;
+    process.env.ALLOW_SIMULATED_PAYMENTS = "1";
+    const { isPaymentSimulated } = await import("../env");
+    expect(() => isPaymentSimulated()).toThrow();
   });
 
   it("uses real payments whenever a key is present", async () => {
     setNodeEnv("production");
+    process.env.ALLOW_SIMULATED_PAYMENTS = "true";
     process.env.STRIPE_SECRET_KEY = "sk_test_123";
     const { isPaymentSimulated } = await import("../env");
     expect(isPaymentSimulated()).toBe(false);
