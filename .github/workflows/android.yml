@@ -1,25 +1,24 @@
 name: Build Android app
 
-# Builds the installable APK in the cloud rather than on a developer machine.
-# Run it from the Actions tab, or let it run on a push that touches the app
-# shell. Note that day-to-day content and UI changes do NOT need a new APK:
-# the app loads the live site, so deploying updates every installed
-# phone. Rebuild only when the icon, name, permissions, or Capacitor config
-# change.
+# Builds the installable APK. The app is a Trusted Web Activity: a thin Android
+# wrapper that opens the deployed site inside Chrome with no browser chrome.
+# Chrome is what makes Web Push work — Android's plain WebView has no Push API.
+#
+# Day-to-day content and UI changes do NOT need a new APK. The app loads the
+# live site, so deploying updates every installed phone. Rebuild only when the
+# icon, name, permissions, or the URL it opens change.
 
 on:
   workflow_dispatch:
     inputs:
       server_url:
-        description: "URL the app should open (blank = the default in capacitor.config.ts)"
+        description: "URL the app should open (blank = the default in android/gradle.properties)"
         required: false
         type: string
   push:
     branches: [main]
     paths:
       - "android/**"
-      - "capacitor.config.ts"
-      - "package.json"
       - ".github/workflows/android.yml"
   release:
     types: [published]
@@ -31,11 +30,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -45,33 +39,62 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install the SDK packages this project targets
-        # variables.gradle pins compileSdk/targetSdk to 36. Installing them up
-        # front makes the build deterministic instead of relying on Gradle's
-        # auto-download.
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-      - run: npm ci
-
-      - name: Sync Capacitor
-        # Copies capacitor.config.ts, including the server URL the shell points
-        # at, into the native project. Supplying server_url when running the
-        # workflow by hand builds an APK against a different host without
-        # editing any code — useful when moving between deployments.
-        run: npx cap sync android
+      - name: Restore the signing keystore
+        # Signing with a stable key is what lets assetlinks.json verify, which
+        # is what hides Chrome's address bar. Without the secrets the build
+        # falls back to debug signing: it still installs and still delivers
+        # push, but the URL bar stays visible.
+        id: keystore
         env:
-          CAPACITOR_SERVER_URL: ${{ inputs.server_url }}
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/sipngo.keystore"
+            echo "path=$RUNNER_TEMP/sipngo.keystore" >> "$GITHUB_OUTPUT"
+            echo "Signing with the release keystore."
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set - falling back to debug signing, so the URL bar will be visible."
+          fi
 
-      - name: Show the URL baked into this build
-        run: cat android/app/src/main/assets/capacitor.config.json
-
-      - name: Build debug APK
+      - name: Build release APK
         working-directory: android
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ steps.keystore.outputs.path }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          SERVER_URL: ${{ inputs.server_url }}
         # Git on Windows does not record the executable bit, so gradlew can
-        # arrive here unexecutable. The mode is fixed in the repository too;
-        # this keeps the build working regardless.
+        # arrive here unexecutable.
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ARGS=""
+          if [ -n "$SERVER_URL" ]; then
+            HOST=$(echo "$SERVER_URL" | sed -E 's#^https?://##' | cut -d/ -f1)
+            ARGS="-PsipngoUrl=$SERVER_URL -PsipngoHost=$HOST"
+            echo "Targeting $SERVER_URL"
+          fi
+          ./gradlew assembleRelease --no-daemon --stacktrace $ARGS
+
+      - name: Report what was built
+        working-directory: android
+        # Prints the certificate the APK is actually signed with next to the
+        # fingerprint assetlinks.json expects. If those differ, the URL bar
+        # stays visible, and this step is where that becomes obvious.
+        run: |
+          echo "URL baked into this build:"
+          grep -E "sipngoUrl|sipngoHost" gradle.properties
+          echo
+          echo "Certificate this APK is signed with:"
+          "$ANDROID_HOME"/build-tools/36.0.0/apksigner verify --print-certs \
+            app/build/outputs/apk/release/app-release.apk \
+            | grep -i "SHA-256" || echo "(could not read certificate)"
+          echo
+          echo "Fingerprint assetlinks.json expects:"
+          grep -o '[0-9A-F][0-9A-F]\(:[0-9A-F][0-9A-F]\)\{31\}' ../public/.well-known/assetlinks.json || true
 
       - name: Name the artifact after the commit
         id: name
@@ -80,8 +103,8 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: sipngo-debug-${{ steps.name.outputs.sha }}
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: sipngo-twa-${{ steps.name.outputs.sha }}
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 90
 
@@ -89,4 +112,4 @@ jobs:
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: android/app/build/outputs/apk/debug/app-debug.apk
+          files: android/app/build/outputs/apk/release/app-release.apk

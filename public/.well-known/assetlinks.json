@@ -1,8 +1,14 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "app.railway.up.sipngo_production.twa",
-        "sha256_cert_fingerprints": ["17:1F:A6:E1:D0:F2:7E:C6:F0:D7:E7:65:AD:B2:C2:A7:1F:A8:09:77:4F:FE:8C:FB:60:2C:E5:D8:D6:FF:2B:7F"]
-      }
-    }]
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.sipngo.app",
+      "sha256_cert_fingerprints": [
+        "26:21:6C:C6:73:B3:E6:A6:71:5D:A6:54:B2:C8:3F:5D:90:10:2B:DA:B9:87:8B:93:06:09:22:51:49:2E:5A:FE"
+      ]
+    }
+  }
+]

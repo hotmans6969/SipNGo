@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches the web app's theme_color and background so the transition
+         from launcher to page shows no colour flash. -->
+    <color name="colorPrimary">#F59E0B</color>
+    <color name="backgroundColor">#FAFAF9</color>
+</resources>

@@ -4,8 +4,8 @@ Order-ahead app for a drinks kiosk. Customers browse the menu, customise a
 drink, pay in-app, and collect with a QR code. Staff work a live order board and
 scan the code to close the order out.
 
-Built with Next.js 16 (App Router), libSQL/Turso, Stripe Checkout, and
-Capacitor for the Android wrapper.
+Built with Next.js 16 (App Router), libSQL/Turso, Stripe Checkout, and a
+Trusted Web Activity wrapper for Android.
 
 ---
 
@@ -107,11 +107,9 @@ Delivery never blocks or fails an order. A subscription the push service
 reports as gone (404/410) is deleted, which is how the table stays free of
 dead endpoints.
 
-> **The Capacitor Android app cannot receive these.** Android's WebView has no
-> Push API, so the shell in `android/` shows the in-app banner only. Push works
-> in Chrome and in the installed PWA. Getting it into the Android app means
-> either repackaging as a Trusted Web Activity, which runs on Chrome and would
-> use the same Web Push, or adding Firebase Cloud Messaging.
+> The Android app is a Trusted Web Activity, so it runs on Chrome and receives
+> these like any browser would. A plain WebView wrapper could not: Android's
+> WebView has no Push API at all, which is why the app is packaged this way.
 
 ## Order lifecycle
 
@@ -163,55 +161,65 @@ npm run lint       # eslint
 
 ## Android app
 
-`android/` is a Capacitor shell around the deployed site. It is not a copy of
-the app: it opens `https://sip-n-go.vercel.app` in a native
-WebView with the SipNGo icon, splash screen, and no browser chrome.
-
-That distinction is the important one:
+`android/` is a **Trusted Web Activity**: a thin Android wrapper that opens the
+deployed site inside Chrome with no browser chrome. It is not a copy of the
+app, and it is deliberately not a WebView — Android's WebView has no Push API,
+so a WebView wrapper can never deliver a notification with the app closed.
+Chrome can, which is the whole reason for this packaging.
 
 | Change | What you do |
 | --- | --- |
 | Menu, prices, pages, styling, features, bug fixes | Push to `main`. Vercel redeploys and **every installed phone shows it on next open.** No new APK. |
-| App icon, app name, permissions, the URL it points at | Rebuild the APK and reinstall. |
-
-So almost nothing needs a rebuild.
+| App icon, app name, permissions, the URL it opens | Rebuild the APK and reinstall. |
 
 ### Getting an APK
 
-Push to `main`, or run **Actions → Build Android app → Run workflow** on
-GitHub. The finished APK is attached to that run as an artifact named
-`sipngo-debug-<commit>`. Download it, transfer it to the phone, and open it —
-Android will ask you to allow installing from this source.
+Run **Actions → Build Android app → Run workflow**, or push a change under
+`android/`. The APK is attached to the run as `sipngo-twa-<commit>`.
 
-Building locally instead needs Android Studio and a JDK:
+The `server_url` input builds against a different deployment without editing
+anything:
 
-```bash
-CAPACITOR_SERVER_URL=http://192.168.1.20:3000 npx cap sync android
-cd android && ./gradlew assembleDebug
+```
+server_url: https://staging.example.com
 ```
 
-Leave `CAPACITOR_SERVER_URL` unset to point at production. The APK lands in
-`android/app/build/outputs/apk/debug/`.
+### Signing, and why the URL bar appears
 
-> If Gradle fails with `PKIX path building failed`, something on the machine is
-> intercepting TLS — Norton and similar antivirus products do this — and the
-> JDK does not trust its certificate. Building through GitHub Actions avoids
-> this entirely.
+Chrome hides its address bar only when Digital Asset Links verifies, and that
+compares two things:
 
-### Limitations
+1. the SHA-256 fingerprint in `public/.well-known/assetlinks.json`
+2. the certificate the APK was actually signed with
 
-- The app needs a network connection. It shows the live site, so there is no
-  offline mode beyond the service worker's cached icons.
-- This is a **debug-signed** APK: fine for installing directly on a phone, but
-  the Play Store needs a release build signed with your own upload key.
-- `public/.well-known/assetlinks.json` holds Digital Asset Links for a Trusted
-  Web Activity build, which is a separate packaging route from this one.
+They match only when CI signs with the release keystore, which needs four
+repository secrets:
+
+| Secret | What it holds |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | the keystore file, base64-encoded |
+| `ANDROID_KEYSTORE_PASSWORD` | its password |
+| `ANDROID_KEY_ALIAS` | `sipngo` |
+| `ANDROID_KEY_PASSWORD` | the key password |
+
+Without them the build still succeeds and still delivers push — it falls back
+to debug signing, and Chrome shows its address bar. The "Report what was built"
+step prints both fingerprints side by side so a mismatch is obvious.
+
+> **Keep the keystore.** Android identifies an app by package name *and*
+> signing certificate. Lose the keystore and you cannot ship an update that
+> installs over an existing copy — every user has to uninstall first.
+
+### Notifications on Android 13+
+
+The manifest declares `POST_NOTIFICATIONS`. Chrome asks for it the first time
+the site requests notification permission, so the in-app card handles it.
 
 ### iOS
 
-Not set up. It needs a Mac with Xcode and a paid Apple Developer account;
-neither is available here. `npx cap add ios` on a Mac is the starting point,
-and the same Capacitor config applies.
+Not set up. It needs a Mac with Xcode and a paid Apple Developer account,
+neither of which is available here. Note that iOS supports Web Push only for a
+PWA the user has added to their home screen.
 
 ## Project layout
 
