@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { sql, describeConnection } from "@/lib/sql";
+import { isPushConfigured } from "@/lib/push";
 
 /**
  * Reports whether the app can reach its database.
@@ -11,6 +12,16 @@ import { sql, describeConnection } from "@/lib/sql";
  */
 export async function GET() {
   const connection = describeConnection();
+
+  // Push needs both halves of the VAPID pair. Reporting them separately turns
+  // "notifications do not work" into a specific missing variable, without
+  // ever revealing the private key itself.
+  const push = {
+    publicKey: !!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    privateKey: !!process.env.VAPID_PRIVATE_KEY,
+    subject: process.env.VAPID_SUBJECT || null,
+    enabled: isPushConfigured(),
+  };
   const configured = {
     databaseUrl: !!process.env.DATABASE_URL,
     databaseAuthToken: !!process.env.DATABASE_AUTH_TOKEN,
@@ -27,6 +38,7 @@ export async function GET() {
 
     return NextResponse.json({
       status: "ok",
+      push,
       database: {
         ...configured,
         reachable: row?.ok === 1,
@@ -41,7 +53,7 @@ export async function GET() {
     console.error("Health check failed:", error);
 
     return NextResponse.json(
-      { status: "error", database: { ...configured, reachable: false }, error: message },
+      { status: "error", push, database: { ...configured, reachable: false }, error: message },
       { status: 503 }
     );
   }
