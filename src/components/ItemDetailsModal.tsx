@@ -3,6 +3,13 @@
 import { useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/lib/format";
+import {
+  TOPPINGS,
+  TOPPING_PRICE_CENTS,
+  DEFAULT_ICED_SURCHARGE_CENTS,
+  normaliseToppings,
+  toppingsPriceCents,
+} from "@/lib/toppings";
 
 interface ItemDetailsModalProps {
   id: string;
@@ -27,7 +34,20 @@ export default function ItemDetailsModal({
   const [temperature, setTemperature] = useState<"hot" | "iced">("hot");
   const [sugarLevel, setSugarLevel] = useState<"normal" | "less" | "none">("normal");
   const [remark, setRemark] = useState("");
+  const [toppings, setToppings] = useState<string[]>([]);
   const [isClosing, setIsClosing] = useState(false);
+
+  const toggleTopping = (toppingId: string) => {
+    setToppings((current) =>
+      // Normalised on every change so the stored order matches the menu, which
+      // is what makes two identically-topped drinks merge into one cart line.
+      normaliseToppings(
+        current.includes(toppingId)
+          ? current.filter((t) => t !== toppingId)
+          : [...current, toppingId]
+      )
+    );
+  };
 
   const handleClose = () => {
     setIsClosing(true);
@@ -38,16 +58,23 @@ export default function ItemDetailsModal({
     addItem({
       menuItemId: id,
       name,
-      priceCents, // base price
+      // The price the customer will actually be charged for this line. The
+      // base price was sent before, so the cart total quietly disagreed with
+      // the server whenever a surcharge applied.
+      priceCents: calculatedPrice,
       category,
       sugarLevel,
       temperature,
       remark,
+      toppings,
     });
     handleClose();
   };
 
-  const calculatedPrice = temperature === "iced" ? priceCents + 100 : priceCents;
+  const calculatedPrice =
+    priceCents +
+    (temperature === "iced" ? DEFAULT_ICED_SURCHARGE_CENTS : 0) +
+    toppingsPriceCents(toppings);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -141,6 +168,42 @@ export default function ItemDetailsModal({
               </div>
             </div>
             
+            {/* Toppings */}
+            <div>
+              <div className="flex items-baseline justify-between mb-3">
+                <h3 className="font-semibold text-stone-900">Toppings</h3>
+                <span className="text-xs text-stone-400">
+                  +{formatPrice(TOPPING_PRICE_CENTS)} each
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                {TOPPINGS.map((topping) => {
+                  const selected = toppings.includes(topping.id);
+                  return (
+                    <button
+                      key={topping.id}
+                      onClick={() => toggleTopping(topping.id)}
+                      aria-pressed={selected}
+                      className={`py-2.5 px-3 rounded-xl border text-sm font-medium transition-all active:scale-95 flex items-center gap-2 ${
+                        selected
+                          ? "border-amber-500 bg-amber-50 text-amber-700 ring-1 ring-amber-500"
+                          : "border-stone-200 text-stone-600 hover:bg-stone-50"
+                      }`}
+                    >
+                      <span aria-hidden="true">{topping.emoji}</span>
+                      <span className="truncate">{topping.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {toppings.length > 0 && (
+                <p className="text-xs text-stone-500 mt-2 animate-fade-in">
+                  {toppings.length} topping{toppings.length === 1 ? "" : "s"} ·
+                  +{formatPrice(toppingsPriceCents(toppings))}
+                </p>
+              )}
+            </div>
+
             {/* Remarks */}
             <div>
               <h3 className="font-semibold text-stone-900 mb-3">Remarks</h3>

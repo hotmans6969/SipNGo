@@ -218,6 +218,16 @@ const MIGRATIONS: Array<{ version: number; name: string; up: () => Promise<void>
       `);
     },
   },
+  {
+    version: 9,
+    name: "order_item_toppings",
+    up: async () => {
+      // Stored as a JSON array on the line rather than a join table: the set
+      // is tiny and fixed, and an order line is only ever read whole. Rows
+      // written before this exists read back as no toppings.
+      await addColumnIfMissing("order_items", "toppings", "TEXT");
+    },
+  },
 ];
 
 async function migrate(): Promise<void> {

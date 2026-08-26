@@ -10,8 +10,12 @@ export interface CartItem {
   quantity: number;
   category: string;
   sugarLevel?: string;
-  temperature?: string;
+  // Narrowed to what the order API accepts, so a mismatch is a compile
+  // error rather than a rejected checkout.
+  temperature?: "hot" | "iced";
   remark?: string;
+  /** Topping ids, already normalised by the picker. */
+  toppings?: string[];
 }
 
 interface CartContextType {
@@ -54,8 +58,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addItem = useCallback((item: Omit<CartItem, "quantity" | "id">) => {
     setItems((prev) => {
       // Find if we already have this exact configuration
+      // Toppings are part of what makes two lines the same drink. Without
+      // comparing them, adding a boba latte on top of a plain one would just
+      // bump the plain one's quantity and lose the topping.
+      const sameToppings = (a?: string[], b?: string[]) =>
+        (a ?? []).join(",") === (b ?? []).join(",");
+
       const existing = prev.find(
-        (i) => i.menuItemId === item.menuItemId && i.sugarLevel === item.sugarLevel && i.temperature === item.temperature && i.remark === item.remark
+        (i) =>
+          i.menuItemId === item.menuItemId &&
+          i.sugarLevel === item.sugarLevel &&
+          i.temperature === item.temperature &&
+          i.remark === item.remark &&
+          sameToppings(i.toppings, item.toppings)
       );
       
       if (existing) {

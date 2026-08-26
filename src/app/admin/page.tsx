@@ -11,12 +11,17 @@ import { formatPrice } from "@/lib/format";
 import { usePolling } from "@/hooks/usePolling";
 import { useOrderAlarm } from "@/hooks/useOrderAlarm";
 import { canTransition, type OrderStatus } from "@/lib/order-status";
+import ItemCustomisations from "@/components/ItemCustomisations";
 
 interface OrderItem {
   id: string;
   name: string;
   price_cents: number;
   quantity: number;
+  sugar_level?: string | null;
+  temperature?: string | null;
+  remark?: string | null;
+  toppings?: string | null;
 }
 
 interface AdminOrder {
@@ -324,9 +329,16 @@ export default function AdminDashboard() {
                   </p>
                   <div className="text-base text-stone-700 font-medium mt-3 bg-stone-50 p-3 rounded-lg border border-stone-100">
                     {order.items.map((item) => (
-                      <span key={item.id} className="inline-block mr-4">
+                      <div key={item.id} className="mb-2 last:mb-0">
                         <span className="font-bold">{item.quantity}x</span> {item.name}
-                      </span>
+                        <ItemCustomisations
+                          temperature={item.temperature}
+                          sugarLevel={item.sugar_level}
+                          toppings={item.toppings}
+                          remark={item.remark}
+                          emphasis
+                        />
+                      </div>
                     ))}
                   </div>
                   <p className="text-stone-500 text-sm font-semibold mt-2">Total: {formatPrice(order.total_cents)}</p>

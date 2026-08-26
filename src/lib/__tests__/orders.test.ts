@@ -151,6 +151,58 @@ describe("createOrder", () => {
     expect(stored.items[0].remark).toBe("no straw");
   });
 
+  it("charges RM 2.00 per topping on top of the drink", async () => {
+    const itemId = await makeMenuItem(550);
+    const order = await createOrder(userId, [
+      { menuItemId: itemId, quantity: 1, toppings: ["boba", "pudding"] },
+    ]);
+    // 550 + (2 x 200)
+    expect(order.total_cents).toBe(950);
+  });
+
+  it("stacks toppings with the iced surcharge, per unit", async () => {
+    const itemId = await makeMenuItem(550);
+    const order = await createOrder(userId, [
+      { menuItemId: itemId, quantity: 2, temperature: "iced", toppings: ["boba"] },
+    ]);
+    // (550 + 100 iced + 200 topping) x 2
+    expect(order.total_cents).toBe(1700);
+  });
+
+  it("ignores toppings that are not on the menu", async () => {
+    // Pricing is computed server-side, so an invented topping earns nothing.
+    const itemId = await makeMenuItem(500);
+    const order = await createOrder(userId, [
+      { menuItemId: itemId, quantity: 1, toppings: ["boba", "gold_leaf"] },
+    ]);
+    expect(order.total_cents).toBe(700);
+  });
+
+  it("charges a repeated topping once", async () => {
+    const itemId = await makeMenuItem(500);
+    const order = await createOrder(userId, [
+      { menuItemId: itemId, quantity: 1, toppings: ["boba", "boba", "boba"] },
+    ]);
+    expect(order.total_cents).toBe(700);
+  });
+
+  it("records which toppings were chosen", async () => {
+    const itemId = await makeMenuItem(500);
+    const order = await createOrder(userId, [
+      { menuItemId: itemId, quantity: 1, toppings: ["pudding", "boba"] },
+    ]);
+    const stored = (await getOrderWithItems(order.id))!;
+    // Stored in menu order, so two identical drinks always look identical.
+    expect(JSON.parse(stored.items[0].toppings!)).toEqual(["boba", "pudding"]);
+  });
+
+  it("stores nothing when no toppings were chosen", async () => {
+    const itemId = await makeMenuItem(500);
+    const order = await createOrder(userId, [{ menuItemId: itemId, quantity: 1 }]);
+    const stored = (await getOrderWithItems(order.id))!;
+    expect(stored.items[0].toppings).toBeNull();
+  });
+
   it("gives each order of the day its own number", async () => {
     const itemId = await makeMenuItem(300);
     const first = await createOrder(userId, [{ menuItemId: itemId, quantity: 1 }]);

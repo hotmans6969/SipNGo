@@ -9,12 +9,17 @@ import { formatMalaysiaDateTime } from "@/lib/dates";
 import { formatPrice } from "@/lib/format";
 import { usePolling } from "@/hooks/usePolling";
 import Toast, { type ToastMessage } from "@/components/Toast";
+import ItemCustomisations from "@/components/ItemCustomisations";
 
 interface OrderItem {
   id: string;
   name: string;
   price_cents: number;
   quantity: number;
+  sugar_level?: string | null;
+  temperature?: string | null;
+  remark?: string | null;
+  toppings?: string | null;
 }
 
 interface Order {
@@ -282,10 +287,16 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <h2 className="text-lg font-semibold text-stone-900 mb-4">Order Details</h2>
         <div className="divide-y divide-stone-100">
           {order.items.map((item) => (
-            <div key={item.id} className="py-3 flex justify-between">
-              <div>
+            <div key={item.id} className="py-3 flex justify-between gap-3">
+              <div className="min-w-0">
                 <span className="font-medium text-stone-900">{item.name}</span>
                 <span className="text-stone-400 ml-2">x{item.quantity}</span>
+                <ItemCustomisations
+                  temperature={item.temperature}
+                  sugarLevel={item.sugar_level}
+                  toppings={item.toppings}
+                  remark={item.remark}
+                />
               </div>
               <span className="text-stone-700 font-medium">
                 {formatPrice(item.price_cents * item.quantity)}

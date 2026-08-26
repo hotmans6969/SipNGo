@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { getMalaysiaDateString } from "./dates";
 import { getIcedSurchargeCents } from "./env";
 import { canTransition, isOrderStatus, type OrderStatus } from "./order-status";
+import { normaliseToppings, serialiseToppings, toppingsPriceCents } from "./toppings";
 import { sql, transaction, type Queryable } from "./sql";
 
 export interface CartItem {
@@ -11,6 +12,7 @@ export interface CartItem {
   sugarLevel?: string;
   temperature?: "hot" | "iced";
   remark?: string;
+  toppings?: string[];
 }
 
 export interface OrderRow {
@@ -37,6 +39,8 @@ export interface OrderItemRow {
   sugar_level: string | null;
   temperature: string | null;
   remark: string | null;
+  /** JSON array of topping ids, or null. Read it with parseToppings(). */
+  toppings: string | null;
 }
 
 export type OrderWithItems = OrderRow & { items: OrderItemRow[] };
@@ -49,7 +53,7 @@ const ORDER_COLUMNS = `
 
 const ORDER_ITEM_COLUMNS = `
   id, order_id, menu_item_id, name, price_cents, quantity,
-  sugar_level, temperature, remark
+  sugar_level, temperature, remark, toppings
 `;
 
 /** Thrown for conditions the caller should surface to the user verbatim. */
@@ -126,8 +130,13 @@ export async function createOrder(userId: string, items: CartItem[]): Promise<Or
   let totalCents = 0;
   const orderItems = items.map((cartItem) => {
     const menuItem = byId.get(cartItem.menuItemId)!;
+    // Unknown or duplicated toppings are discarded here, so a client cannot
+    // charge itself less by sending nonsense or more by sending repeats.
+    const toppings = normaliseToppings(cartItem.toppings);
     const unitPrice =
-      num(menuItem.price_cents) + (cartItem.temperature === "iced" ? icedSurcharge : 0);
+      num(menuItem.price_cents) +
+      (cartItem.temperature === "iced" ? icedSurcharge : 0) +
+      toppingsPriceCents(toppings);
     totalCents += unitPrice * cartItem.quantity;
     return {
       id: uuidv4(),
@@ -138,6 +147,7 @@ export async function createOrder(userId: string, items: CartItem[]): Promise<Or
       sugarLevel: cartItem.sugarLevel ?? null,
       temperature: cartItem.temperature ?? null,
       remark: cartItem.remark ?? null,
+      toppings: serialiseToppings(toppings),
     };
   });
 
@@ -157,8 +167,8 @@ export async function createOrder(userId: string, items: CartItem[]): Promise<Or
     for (const item of orderItems) {
       await tx.run(
         `INSERT INTO order_items
-           (id, order_id, menu_item_id, name, price_cents, quantity, sugar_level, temperature, remark)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, order_id, menu_item_id, name, price_cents, quantity, sugar_level, temperature, remark, toppings)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           item.id,
           orderId,
@@ -169,6 +179,7 @@ export async function createOrder(userId: string, items: CartItem[]): Promise<Or
           item.sugarLevel,
           item.temperature,
           item.remark,
+          item.toppings,
         ]
       );
     }

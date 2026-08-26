@@ -1,3 +1,5 @@
+import { DEFAULT_ICED_SURCHARGE_CENTS } from "./toppings";
+
 /**
  * Central environment access. Every value the server needs is read here once,
  * so a misconfigured deploy fails loudly at startup instead of silently
@@ -39,7 +41,7 @@ export function getAdminSeed(): { email: string; password: string } | null {
 /** Surcharge for an iced drink, in sen. */
 export function getIcedSurchargeCents(): number {
   const raw = process.env.ICED_SURCHARGE_CENTS;
-  if (!raw) return 100;
+  if (!raw) return DEFAULT_ICED_SURCHARGE_CENTS;
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isInteger(parsed) || parsed < 0) {
     throw new Error("ICED_SURCHARGE_CENTS must be a non-negative integer.");

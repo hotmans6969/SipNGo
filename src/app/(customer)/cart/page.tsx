@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
+import { formatToppings } from "@/lib/toppings";
 import { formatMalaysiaTime } from "@/lib/dates";
 import StatusBadge from "@/components/StatusBadge";
 import { usePolling } from "@/hooks/usePolling";
@@ -84,7 +85,18 @@ export default function CartPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: items.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
+          // Every choice has to travel with the line. Sending only the id and
+          // quantity silently discarded temperature, sugar, remarks and
+          // toppings, so the drink made was not the drink ordered and no
+          // surcharge was ever applied.
+          items: items.map((i) => ({
+            menuItemId: i.menuItemId,
+            quantity: i.quantity,
+            sugarLevel: i.sugarLevel,
+            temperature: i.temperature,
+            remark: i.remark || undefined,
+            toppings: i.toppings?.length ? i.toppings : undefined,
+          })),
         }),
       });
 
@@ -164,6 +176,13 @@ export default function CartPage() {
                       <p className="text-xs space-x-2">
                         {item.temperature && <span className="bg-stone-100 px-2 py-0.5 rounded-full">{item.temperature === "iced" ? "\u2744\uFE0F Iced" : "\u2615 Hot"}</span>}
                         {item.sugarLevel && <span className="bg-stone-100 px-2 py-0.5 rounded-full">{item.sugarLevel} sugar</span>}
+                      </p>
+                    )}
+                    {item.toppings && item.toppings.length > 0 && (
+                      <p className="text-xs">
+                        <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                          + {formatToppings(item.toppings)}
+                        </span>
                       </p>
                     )}
                     {item.remark && (

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { ORDER_STATUSES } from "./order-status";
+import { TOPPING_IDS, MAX_TOPPINGS_PER_ITEM } from "./toppings";
 
 export const registerSchema = z.object({
   email: z.string().trim().toLowerCase().email("Invalid email address").max(254),
@@ -22,6 +23,13 @@ export const cartItemSchema = z.object({
   sugarLevel: z.string().trim().max(40).optional(),
   temperature: z.enum(["hot", "iced"]).optional(),
   remark: z.string().trim().max(200).optional(),
+  // The cap comes from the catalogue rather than a hardcoded number, so
+  // adding a topping does not silently leave this behind. Order creation
+  // normalises the list again regardless of what arrives here.
+  toppings: z
+    .array(z.enum(TOPPING_IDS as [string, ...string[]]))
+    .max(MAX_TOPPINGS_PER_ITEM, `Choose at most ${MAX_TOPPINGS_PER_ITEM} toppings`)
+    .optional(),
 });
 
 export const createOrderSchema = z.object({
