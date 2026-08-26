@@ -9,6 +9,11 @@ name: Build Android app
 
 on:
   workflow_dispatch:
+    inputs:
+      server_url:
+        description: "URL the app should open (blank = the default in capacitor.config.ts)"
+        required: false
+        type: string
   push:
     branches: [main]
     paths:
@@ -49,8 +54,12 @@ jobs:
 
       - name: Sync Capacitor
         # Copies capacitor.config.ts, including the server URL the shell points
-        # at, into the native project.
+        # at, into the native project. Supplying server_url when running the
+        # workflow by hand builds an APK against a different host without
+        # editing any code — useful when moving between deployments.
         run: npx cap sync android
+        env:
+          CAPACITOR_SERVER_URL: ${{ inputs.server_url }}
 
       - name: Show the URL baked into this build
         run: cat android/app/src/main/assets/capacitor.config.json

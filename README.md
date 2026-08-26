@@ -4,8 +4,8 @@ Order-ahead app for a drinks kiosk. Customers browse the menu, customise a
 drink, pay in-app, and collect with a QR code. Staff work a live order board and
 scan the code to close the order out.
 
-Built with Next.js 16 (App Router), SQLite via `better-sqlite3`, Stripe
-Checkout, and Capacitor for the Android wrapper.
+Built with Next.js 16 (App Router), libSQL/Turso, Stripe Checkout, and
+Capacitor for the Android wrapper.
 
 ---
 
@@ -49,7 +49,7 @@ a starter drinks menu is seeded if the menu is empty.
 | `EXTRA_DEV_ORIGINS` | no | Comma-separated extra origins Next accepts in dev (tunnels, LAN IPs). |
 
 `.env.local` is gitignored and must stay that way. Never commit it, and never
-commit `sipngo.db` — it contains real customer records.
+commit a local `*.db` file — it contains real customer records.
 
 ## Payments
 
