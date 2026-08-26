@@ -39,29 +39,17 @@ export default function CartPage() {
   useEffect(() => {
     if (!user) return;
 
-    let prevOrders: Order[] = [];
-
     const fetchOrders = () => {
       fetch("/api/orders")
         .then((res) => res.json())
         .then((data) => {
           const freshOrders = data.orders || [];
           
-          // Check for status changes
-          if (prevOrders.length > 0 && typeof window !== "undefined" && window.Notification?.permission === "granted") {
-            freshOrders.forEach((newOrder: Order) => {
-              const oldOrder = prevOrders.find((o) => o.id === newOrder.id);
-              if (oldOrder && oldOrder.status !== newOrder.status) {
-                if (newOrder.status === "preparing") {
-                  new Notification("Order Preparing! 👩🍳", { body: `Order #${newOrder.order_number} has been accepted and is now being prepared.` });
-                } else if (newOrder.status === "ready") {
-                  new Notification("Order Ready! ☕", { body: `Your order #${newOrder.order_number} is ready for pickup!` });
-                }
-              }
-            });
-          }
-          
-          prevOrders = freshOrders;
+          // Status-change notifications are delivered by the service worker
+          // from a push message, which works with the app closed. Raising one
+          // here as well would duplicate it whenever this page happened to be
+          // open.
+
           setOrders(freshOrders);
         })
         .catch(() => {});

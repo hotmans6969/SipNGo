@@ -10,6 +10,7 @@ import { getStripe } from "@/lib/stripe";
 import { isPaymentSimulated } from "@/lib/env";
 import { CURRENCY } from "@/lib/format";
 import { parseBody, checkoutSchema } from "@/lib/validation";
+import { notifyStaff } from "@/lib/push";
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,6 +38,13 @@ export async function POST(request: NextRequest) {
     // quietly handing out free orders.
     if (isPaymentSimulated()) {
       await updateOrderStatus(order.id, "paid");
+      // Never let a notification failure break a paid order.
+      await notifyStaff({
+        title: "New order 🧾",
+        body: `Order #${String(order.order_number).padStart(3, "0")} has been paid and needs making.`,
+        url: "/admin",
+        tag: `new-order-${order.id}`,
+      }).catch(() => {});
       return NextResponse.json({
         success: true,
         mode: "demo",

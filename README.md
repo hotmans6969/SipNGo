@@ -42,6 +42,8 @@ a starter drinks menu is seeded if the menu is empty.
 | `STRIPE_WEBHOOK_SECRET` | production | Verifies incoming webhooks. |
 | `NEXT_PUBLIC_APP_URL` | yes | Used to build Stripe return URLs. |
 | `ICED_SURCHARGE_CENTS` | no | Surcharge for an iced drink, in sen. Defaults to `100`. |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | no | Web Push keys. Absent, push is disabled and only the in-app banner shows. |
+| `VAPID_SUBJECT` | no | `mailto:` address push services use to contact you. |
 | `DATABASE_URL` | production | Turso database URL (`libsql://…`). Unset means a local file. |
 | `DATABASE_AUTH_TOKEN` | production | Turso auth token. Required whenever `DATABASE_URL` is remote. |
 | `DATABASE_PATH` | no | Local SQLite file, used only when `DATABASE_URL` is unset. |
@@ -77,6 +79,39 @@ Handled events:
 Award and reversal both go through the `points_ledger` table, which has a
 `UNIQUE (order_id, reason)` constraint, so a replayed webhook cannot
 double-credit an account.
+
+## Notifications
+
+Two separate things, often confused:
+
+- **In-app banner** — shown while a page is open, rendered by `Toast` through a
+  portal to `document.body`. The portal is not decoration: an ancestor that
+  animates `opacity` creates a stacking context, which traps a child's
+  `z-index` inside it and lets the sticky header paint over the banner.
+- **Push notification** — delivered by the browser's push service to the
+  service worker, so it arrives **with the app closed and the screen off**.
+  This is the one customers actually need.
+
+Customers are asked for permission by `PushNotificationPrompt`, on a tap rather
+than on page load: browsers block permission requests made without a user
+gesture, and a denial is close to permanent.
+
+Who gets told what:
+
+| Event | Who is notified |
+| --- | --- |
+| Order paid | Staff and admins — "new order, needs making" |
+| Order set to preparing / ready / cancelled | The customer who placed it |
+
+Delivery never blocks or fails an order. A subscription the push service
+reports as gone (404/410) is deleted, which is how the table stays free of
+dead endpoints.
+
+> **The Capacitor Android app cannot receive these.** Android's WebView has no
+> Push API, so the shell in `android/` shows the in-app banner only. Push works
+> in Chrome and in the installed PWA. Getting it into the Android app means
+> either repackaging as a Trusted Web Activity, which runs on Chrome and would
+> use the same Web Push, or adding Firebase Cloud Messaging.
 
 ## Order lifecycle
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { updateOrderStatus, getOrder, getOrderByQrToken, OrderError } from "@/lib/orders";
 import { parseBody, adminUpdateOrderSchema } from "@/lib/validation";
+import { notifyUser, customerStatusMessage } from "@/lib/push";
 
 export async function PATCH(
   request: NextRequest,
@@ -33,6 +34,17 @@ export async function PATCH(
 
     // updateOrderStatus enforces the allowed transitions.
     const updated = await updateOrderStatus(id, data.status!);
+
+    // Delivered even with the customer's app closed. A failure here must not
+    // fail the status change the counter just made.
+    const message = customerStatusMessage(updated.status, updated.order_number);
+    if (message) {
+      await notifyUser(updated.user_id, {
+        ...message,
+        url: `/orders/${updated.id}`,
+      }).catch(() => {});
+    }
+
     return NextResponse.json({ order: updated });
   } catch (error) {
     if (error instanceof OrderError) {

@@ -197,6 +197,27 @@ const MIGRATIONS: Array<{ version: number; name: string; up: () => Promise<void>
       `);
     },
   },
+  {
+    version: 8,
+    name: "push_subscriptions",
+    up: async () => {
+      // One row per browser/device a user has granted permission on. The
+      // endpoint is unique per subscription and is what identifies it to the
+      // push service, so it doubles as the primary key.
+      await executeMultiple(`
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+          endpoint TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          p256dh TEXT NOT NULL,
+          auth TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user
+          ON push_subscriptions(user_id);
+      `);
+    },
+  },
 ];
 
 async function migrate(): Promise<void> {

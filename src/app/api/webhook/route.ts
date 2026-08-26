@@ -6,6 +6,7 @@ import { isPaymentSimulated } from "@/lib/env";
 import getDb from "@/lib/db";
 import { sql } from "@/lib/sql";
 import type { OrderStatus } from "@/lib/order-status";
+import { notifyStaff } from "@/lib/push";
 
 /**
  * Resolves the order a session belongs to. client_reference_id is set at
@@ -51,6 +52,15 @@ export async function POST(request: NextRequest) {
               : session.payment_intent?.id ?? "";
           // Idempotent: a replayed event will not award points twice.
           await markOrderPaid(orderId, paymentIntent);
+          const paid = await getOrder(orderId);
+          if (paid) {
+            await notifyStaff({
+              title: "New order 🧾",
+              body: `Order #${String(paid.order_number).padStart(3, "0")} has been paid and needs making.`,
+              url: "/admin",
+              tag: `new-order-${paid.id}`,
+            }).catch(() => {});
+          }
         }
         break;
       }
