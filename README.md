@@ -221,6 +221,37 @@ Not set up. It needs a Mac with Xcode and a paid Apple Developer account,
 neither of which is available here. Note that iOS supports Web Push only for a
 PWA the user has added to their home screen.
 
+## Editor tooling (MCP)
+
+`.mcp.json` declares a GitHub MCP server for anyone working on this repo with
+an MCP-aware assistant. It exists for one concrete reason: GitHub Actions run
+logs cannot be read without a token, so a failed build reports
+`Process completed with exit code 1` and nothing else. Two Android builds
+failed that way during development, which is why the workflow now captures
+Gradle's output and re-emits it as an annotation — a workaround for missing
+log access.
+
+The file holds no credentials. It references `GITHUB_PERSONAL_ACCESS_TOKEN`
+from the environment, so it is safe to commit. Set the token once as a user
+environment variable:
+
+```powershell
+[Environment]::SetEnvironmentVariable("GITHUB_PERSONAL_ACCESS_TOKEN", "ghp_your_token", "User")
+```
+
+Then restart the editor. Create the token at
+https://github.com/settings/tokens with `repo`, `workflow`, and `read:org`.
+
+Worth adding later, but not configured because the services are not set up:
+
+- **Vercel** — deployment status, environment variables, and runtime logs.
+  Missing variables were the real cause of an empty menu that took several
+  rounds to diagnose, and a generated admin password was lost to a log nobody
+  could read.
+- **Sentry** — there is no error monitoring at all. A customer hitting a 500
+  mid-order is currently invisible, because the API deliberately returns
+  generic errors.
+
 ## Project layout
 
 ```
