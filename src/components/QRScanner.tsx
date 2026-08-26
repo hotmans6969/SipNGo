@@ -1,98 +1,111 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Html5QrcodeScanner } from "html5-qrcode";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Html5Qrcode } from "html5-qrcode";
 
 interface QRScannerProps {
   onScanSuccess: (decodedText: string) => void;
   onClose: () => void;
 }
 
-export default function QRScanner({ onScanSuccess, onClose }: QRScannerProps) {
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
-  const [isClosing, setIsClosing] = useState(false);
-  const [cameraError, setCameraError] = useState("");
+type Phase = "idle" | "starting" | "scanning" | "error";
 
-  // The scanner is started once and must stay running. Holding the callback in
-  // a ref keeps it out of the effect's dependencies: the dashboard recreates
-  // its handler on every render and re-renders every few seconds while
-  // polling, which previously tore the camera down and rebuilt it each time.
+export default function QRScanner({ onScanSuccess, onClose }: QRScannerProps) {
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [cameraError, setCameraError] = useState("");
+  const [isClosing, setIsClosing] = useState(false);
+
+  // Held in a ref so the scanner is never restarted by the dashboard
+  // re-rendering, which it does every few seconds while polling.
   const onScanSuccessRef = useRef(onScanSuccess);
   useEffect(() => {
     onScanSuccessRef.current = onScanSuccess;
   }, [onScanSuccess]);
 
-  const handleClose = () => {
+  const stopCamera = useCallback(async () => {
+    const scanner = scannerRef.current;
+    scannerRef.current = null;
+    if (!scanner) return;
+    try {
+      // stop() throws if it was never started; either way the instance goes.
+      await scanner.stop();
+    } catch {
+      // Nothing useful to do — the camera is being released regardless.
+    }
+    try {
+      scanner.clear();
+    } catch {
+      // As above.
+    }
+  }, []);
+
+  const handleClose = useCallback(() => {
     setIsClosing(true);
+    void stopCamera();
     setTimeout(onClose, 200);
-  };
+  }, [onClose, stopCamera]);
 
-  useEffect(() => {
-    let cancelled = false;
+  /**
+   * Starts the camera. Deliberately triggered by a tap rather than on mount:
+   * opening a camera the moment a dialog appears is startling, fires the
+   * permission prompt before the operator knows why it is being asked, and on
+   * several browsers a capture started without a user gesture is refused
+   * outright.
+   */
+  const startCamera = useCallback(async () => {
+    setCameraError("");
+    setPhase("starting");
 
-    // Check for camera access up front so a refusal explains itself, rather
-    // than leaving an empty frame with no indication of what went wrong.
-    const start = async () => {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraError(
-          "This browser cannot open the camera. Try Chrome, and make sure the page is on https."
-        );
-        return;
-      }
+    try {
+      const scanner = new Html5Qrcode("qr-reader");
+      scannerRef.current = scanner;
 
-      try {
-        // Released immediately; html5-qrcode opens its own stream. This exists
-        // only to surface the permission result as a readable message.
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        });
-        stream.getTracks().forEach((track) => track.stop());
-      } catch (error) {
-        const name = error instanceof Error ? error.name : "";
-        if (name === "NotAllowedError") {
-          setCameraError(
-            "Camera access was denied. Allow the camera for this site in your browser settings, then reopen the scanner."
-          );
-        } else if (name === "NotFoundError" || name === "OverconstrainedError") {
-          setCameraError("No camera was found on this device.");
-        } else {
-          setCameraError(
-            "The camera could not be started. It may be in use by another app."
-          );
-        }
-        return;
-      }
-
-      if (cancelled) return;
-
-      scannerRef.current = new Html5QrcodeScanner(
-        "qr-reader",
+      await scanner.start(
+        // `exact` pins this to the rear camera. Without it a phone opens the
+        // selfie camera, which cannot be aimed at a customer's screen.
+        { facingMode: { exact: "environment" } },
         { fps: 10, qrbox: { width: 250, height: 250 } },
-        false
-      );
-
-      scannerRef.current.render(
         (decodedText) => {
-          // Stop scanning after a hit so one code cannot fire repeatedly.
-          scannerRef.current?.clear().catch(() => {});
+          // Release the camera before handing over, so one code cannot fire
+          // repeatedly while the request is in flight.
+          void stopCamera();
           onScanSuccessRef.current(decodedText);
         },
         () => {
-          // Scan errors fire continuously until a code is in frame.
+          // Fires continuously until a code is in frame; not an error.
         }
       );
-    };
 
-    void start();
-
-    return () => {
-      cancelled = true;
-      scannerRef.current?.clear().catch(() => {});
+      setPhase("scanning");
+    } catch (error) {
       scannerRef.current = null;
+      const name = error instanceof Error ? error.name : "";
+      const text = error instanceof Error ? error.message : String(error);
+
+      if (name === "NotAllowedError" || /permission/i.test(text)) {
+        setCameraError(
+          "Camera access was denied. Allow the camera for this site in your browser settings, then try again."
+        );
+      } else if (name === "OverconstrainedError" || /facingMode|constraint/i.test(text)) {
+        setCameraError("No rear camera was found on this device.");
+      } else if (name === "NotFoundError") {
+        setCameraError("No camera was found on this device.");
+      } else if (name === "NotReadableError") {
+        setCameraError("The camera is already in use by another app.");
+      } else {
+        setCameraError("The camera could not be started. Please try again.");
+      }
+      setPhase("error");
+    }
+  }, [stopCamera]);
+
+  // Release the camera if the dialog goes away by any other route.
+  useEffect(() => {
+    return () => {
+      void stopCamera();
     };
-    // Intentionally runs once: the camera must not restart while the dialog
-    // is open.
-  }, []);
+  }, [stopCamera]);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -117,28 +130,73 @@ export default function QRScanner({ onScanSuccess, onClose }: QRScannerProps) {
             aria-label="Close scanner"
             className="text-stone-400 hover:text-stone-700 w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-200 transition-colors"
           >
-            {"✕"}
+            ✕
           </button>
         </div>
+
         <div className="p-4">
-          {cameraError ? (
-            <div className="text-center py-6">
-              <div className="text-4xl mb-3" aria-hidden="true">
-                📷
-              </div>
-              <p className="text-stone-700 font-semibold mb-1">Camera unavailable</p>
-              <p className="text-sm text-stone-500">{cameraError}</p>
-            </div>
-          ) : (
+          {/* Always mounted: html5-qrcode needs this element to exist before
+              start() is called, and mounting it on demand races that. */}
+          <div
+            id="qr-reader"
+            className={
+              phase === "scanning"
+                ? "w-full rounded-xl overflow-hidden shadow-sm border border-stone-200"
+                : "hidden"
+            }
+          />
+
+          {phase === "scanning" ? (
             <>
-              <div
-                id="qr-reader"
-                className="w-full rounded-xl overflow-hidden shadow-sm border border-stone-200"
-              />
               <p className="text-center text-sm text-stone-500 mt-4">
-                Position the order QR code inside the camera frame.
+                Hold the customer&apos;s QR code inside the frame.
               </p>
+              <button
+                onClick={() => {
+                  void stopCamera();
+                  setPhase("idle");
+                }}
+                className="w-full mt-3 py-2.5 text-sm text-stone-500 hover:text-stone-700 font-medium transition-colors"
+              >
+                Stop camera
+              </button>
             </>
+          ) : (
+            <div className="text-center py-4">
+              <div className="text-5xl mb-4" aria-hidden="true">
+                {phase === "error" ? "📷" : "🔳"}
+              </div>
+
+              {phase === "error" && (
+                <p className="text-sm text-red-600 mb-4 px-2">{cameraError}</p>
+              )}
+
+              {phase === "idle" && (
+                <p className="text-sm text-stone-500 mb-5 px-2">
+                  The rear camera opens only when you tap below.
+                </p>
+              )}
+
+              <button
+                onClick={startCamera}
+                disabled={phase === "starting"}
+                className="w-full py-5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-lg rounded-2xl transition-all active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-3"
+              >
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 10V3h7m11 7V3h-7m-11 11v7h7m11-7v7h-7"
+                  />
+                </svg>
+                {phase === "starting"
+                  ? "Opening camera…"
+                  : phase === "error"
+                    ? "Try again"
+                    : "Scan QR code"}
+              </button>
+            </div>
           )}
         </div>
       </div>

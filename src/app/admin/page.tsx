@@ -208,9 +208,9 @@ export default function AdminDashboard() {
               setScanError("");
               setShowScanner(true);
             }}
-            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-3 rounded-xl transition-colors shadow-md"
+            className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-4 rounded-xl transition-all active:scale-[0.97] shadow-md text-lg flex-1 sm:flex-none"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10V3h7m11 7V3h-7m-11 11v7h7m11-7v7h-7" />
             </svg>
             Scan QR
