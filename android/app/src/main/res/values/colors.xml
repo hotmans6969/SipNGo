@@ -4,4 +4,7 @@
          from launcher to page shows no colour flash. -->
     <color name="colorPrimary">#F59E0B</color>
     <color name="backgroundColor">#FAFAF9</color>
+    <!-- The adaptive launcher icon's background layer. Referenced by
+         mipmap-anydpi-v26/ic_launcher.xml, which came over with the icons. -->
+    <color name="ic_launcher_background">#FAFAF9</color>
 </resources>
