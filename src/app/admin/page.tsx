@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import StatusBadge from "@/components/StatusBadge";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import QRScanner from "@/components/QRScanner";
 import { formatMalaysiaTime } from "@/lib/dates";
 import { formatPrice } from "@/lib/format";
 import { usePolling } from "@/hooks/usePolling";
+import { useOrderAlarm } from "@/hooks/useOrderAlarm";
 
 interface OrderItem {
   id: string;
@@ -35,44 +36,13 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [awaitingCount, setAwaitingCount] = useState(0);
   
   // Scanner state
   const [showScanner, setShowScanner] = useState(false);
   const [scanError, setScanError] = useState("");
 
   const router = useRouter();
-  const prevOrdersRef = useRef<Set<string>>(new Set());
-  const audioContextRef = useRef<AudioContext | null>(null);
-
-  const playNotification = useCallback(() => {
-    try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext ||
-          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-      }
-      
-      const ctx = audioContextRef.current;
-      const osc = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
-      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
-      
-      gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.05);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-      
-      osc.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      
-      osc.start();
-      osc.stop(ctx.currentTime + 0.5);
-    } catch {
-      // Ignore audio errors if blocked by browser
-    }
-  }, []);
-
   const fetchOrders = useCallback(async () => {
     const url = statusFilter ? `/api/admin/orders?status=${statusFilter}` : "/api/admin/orders";
     try {
@@ -84,26 +54,27 @@ export default function AdminDashboard() {
       const data = await res.json();
       const newOrders: AdminOrder[] = data.orders || [];
       
-      // Determine if there are NEW 'paid' orders demanding attention
-      if (prevOrdersRef.current.size > 0) {
-        const hasNewPaid = newOrders.some(o => 
-          o.status === "paid" && !prevOrdersRef.current.has(o.id)
-        );
-        if (hasNewPaid) {
-          playNotification();
-        }
-      }
-      
-      // Update our refs
-      prevOrdersRef.current = new Set(newOrders.map(o => o.id));
       setOrders(newOrders);
+
+      // How many orders are waiting to be started, independent of the filter
+      // being viewed. The endpoint reports the unpaginated total, so this
+      // stays correct however many there are.
+      try {
+        const waitingRes = await fetch("/api/admin/orders?status=paid&limit=1");
+        if (waitingRes.ok) {
+          const waiting = await waitingRes.json();
+          setAwaitingCount(waiting.total ?? 0);
+        }
+      } catch {
+        // Leave the previous count rather than falsely silencing the alarm.
+      }
 
     } catch {
       // silently fail
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, router, playNotification]);
+  }, [statusFilter, router]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -119,6 +90,17 @@ export default function AdminDashboard() {
   // Refresh while the dashboard is on screen. Polling stops when the tab is
   // hidden and resumes with an immediate fetch when it comes back.
   usePolling(fetchOrders, 5000, !authLoading && !!user);
+
+  // "paid" means the customer has paid and nobody has started making it. The
+  // alarm is driven by that being true right now rather than by an order
+  // arriving, so it keeps sounding for one that was already waiting when the
+  // board was opened, and stops the instant the last one is accepted.
+  //
+  // This count is fetched separately rather than derived from `orders`,
+  // because `orders` reflects the current status filter — deriving it there
+  // silenced the alarm the moment staff filtered to any other status, while
+  // orders sat unmade.
+  const { blocked: soundBlocked, enableSound } = useOrderAlarm(awaitingCount > 0);
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     setUpdatingId(orderId);
@@ -238,6 +220,34 @@ export default function AdminDashboard() {
          <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm">
            {scanError}
          </div>
+      )}
+
+      {/* An alarm nobody can hear is worse than no alarm, so a blocked audio
+          context is stated plainly rather than failing quietly. */}
+      {soundBlocked && (
+        <div className="mb-4 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-center justify-between gap-4 animate-fade-in-up">
+          <div>
+            <p className="font-semibold text-amber-900">Sound is blocked</p>
+            <p className="text-sm text-amber-700 mt-0.5">
+              Your browser will not play the new-order alert until you allow it.
+            </p>
+          </div>
+          <button
+            onClick={enableSound}
+            className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-4 py-2.5 rounded-lg transition-all active:scale-95"
+          >
+            Turn on sound
+          </button>
+        </div>
+      )}
+
+      {awaitingCount > 0 && (
+        <div className="mb-4 p-4 bg-amber-500 text-white rounded-xl flex items-center gap-3 animate-attention-pulse">
+          <span className="text-2xl" aria-hidden="true">🔔</span>
+          <p className="font-bold" role="status">
+            {awaitingCount} order{awaitingCount === 1 ? "" : "s"} waiting to be started
+          </p>
+        </div>
       )}
 
       {/* Status Filter */}

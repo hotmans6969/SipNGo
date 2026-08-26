@@ -6,6 +6,8 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
+import { formatMalaysiaTime } from "@/lib/dates";
+import StatusBadge from "@/components/StatusBadge";
 import { usePolling } from "@/hooks/usePolling";
 
 interface OrderItem {
@@ -30,7 +32,7 @@ export default function CartPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const router = useRouter();
 
 
@@ -61,6 +63,11 @@ export default function CartPage() {
 
   // Polling pauses while the tab is hidden.
   usePolling(() => fetchOrdersRef.current?.(), 5000, !!user);
+
+  // Anything still moving through the counter. Collected and cancelled orders
+  // belong in history, not on the page you watch while you wait.
+  const ONGOING = ["pending_payment", "paid", "preparing", "ready"];
+  const ongoing = orders.filter((o) => ONGOING.includes(o.status));
 
   const handleCheckout = async () => {
     if (!user) {
@@ -121,7 +128,9 @@ export default function CartPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-stone-900 mb-6">Your Cart</h1>
+      <h1 className="text-3xl font-bold text-stone-900 mb-6">Orders</h1>
+
+      <h2 className="text-lg font-bold text-stone-900 mb-3">Your cart</h2>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
@@ -130,17 +139,16 @@ export default function CartPage() {
       )}
 
       {totalItems === 0 ? (
-        <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center mb-8">
-          <svg className="w-16 h-16 mx-auto text-stone-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="bg-white rounded-2xl border border-stone-200 p-8 text-center">
+          <svg className="w-12 h-12 mx-auto text-stone-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
           </svg>
-          <h2 className="text-xl font-semibold text-stone-700 mb-2">Your cart is empty</h2>
-          <p className="text-stone-400 mb-6">Browse our menu to add items</p>
+          <p className="text-stone-500 mb-4">Nothing in your cart yet</p>
           <Link
             href="/menu"
-            className="inline-block bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+            className="inline-block bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-2.5 rounded-lg transition-all active:scale-95"
           >
-            Browse Menu
+            Browse menu
           </Link>
         </div>
       ) : (
@@ -225,6 +233,72 @@ export default function CartPage() {
         </>
       )}
 
+      <section className="mt-10">
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-lg font-bold text-stone-900">Ongoing orders</h2>
+          {ongoing.length > 0 && (
+            <span className="text-sm text-stone-400">
+              {ongoing.length} in progress
+            </span>
+          )}
+        </div>
+
+        {!user ? (
+          <div className="bg-white rounded-2xl border border-stone-200 p-8 text-center">
+            <p className="text-stone-500 mb-4">Log in to follow your orders</p>
+            <Link
+              href="/auth/login"
+              className="inline-block bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-2.5 rounded-lg transition-all active:scale-95"
+            >
+              Log in
+            </Link>
+          </div>
+        ) : ongoing.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-stone-200 p-8 text-center">
+            <p className="text-stone-500">No orders in progress</p>
+            <p className="text-sm text-stone-400 mt-1">
+              Anything you order will show here until you collect it.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3 stagger-children">
+            {ongoing.map((order) => (
+              <Link
+                key={order.id}
+                href={`/orders/${order.id}`}
+                className="block bg-white rounded-2xl border border-stone-200 p-5 hover:shadow-md hover:border-amber-200 transition-all duration-200 active:scale-[0.99]"
+              >
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div>
+                    <p className="font-bold text-stone-900">
+                      Order #{String(order.order_number).padStart(3, "0")}
+                    </p>
+                    <p className="text-xs text-stone-400 mt-0.5">
+                      {formatMalaysiaTime(order.created_at)}
+                    </p>
+                  </div>
+                  <StatusBadge status={order.status} />
+                </div>
+
+                <p className="text-sm text-stone-500 truncate">
+                  {order.items
+                    .map((i) => `${i.quantity}x ${i.name}`)
+                    .join(", ")}
+                </p>
+
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-stone-100">
+                  <span className="font-semibold text-amber-600">
+                    {formatPrice(order.total_cents)}
+                  </span>
+                  <span className="text-sm text-stone-400">
+                    {order.status === "ready" ? "Ready — show your QR" : "View details →"}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

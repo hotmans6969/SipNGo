@@ -73,7 +73,7 @@ export default function Navbar() {
                   </span>
                 )}
               </div>
-              <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Cart</span>
+              <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Orders</span>
             </Link>
           )}
 
