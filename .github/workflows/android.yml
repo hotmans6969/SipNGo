@@ -77,7 +77,18 @@ jobs:
             ARGS="-PsipngoUrl=$SERVER_URL -PsipngoHost=$HOST"
             echo "Targeting $SERVER_URL"
           fi
-          ./gradlew assembleRelease --no-daemon --stacktrace $ARGS
+          # Gradle's output is captured so a failure can be surfaced as a
+          # workflow annotation. Run logs are not readable without a token,
+          # which makes a bare "exit code 1" impossible to diagnose.
+          set -o pipefail
+          if ! ./gradlew assembleRelease --no-daemon --stacktrace $ARGS 2>&1 | tee gradle-output.txt; then
+            echo "::group::Gradle failure"
+            grep -A 20 -E "What went wrong|FAILURE:|error:" gradle-output.txt | head -60 || tail -60 gradle-output.txt
+            echo "::endgroup::"
+            SUMMARY=$(grep -A 6 "What went wrong" gradle-output.txt | head -8 | paste -sd' ' -)
+            echo "::error::${SUMMARY:-see the Gradle failure group above}"
+            exit 1
+          fi
 
       - name: Report what was built
         working-directory: android

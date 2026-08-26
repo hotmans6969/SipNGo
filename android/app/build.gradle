@@ -15,11 +15,19 @@ android {
         versionCode 2
         versionName "2.0"
 
-        // Consumed by strings.xml and the manifest, so the site the app opens
-        // is declared in exactly one place.
+        // The site the app opens, declared once in gradle.properties and
+        // overridable with -PsipngoUrl. project.property returns an Object, so
+        // these are converted explicitly rather than relying on coercion.
+        def launchUrl = project.property("sipngoUrl").toString()
+        def launchHost = project.property("sipngoHost").toString()
+
         resValue "string", "app_name", "SipNGo"
-        resValue "string", "launch_url", project.property("sipngoUrl")
-        resValue "string", "host_name", project.property("sipngoHost")
+        resValue "string", "launch_url", launchUrl
+
+        // The intent-filter host goes in as a manifest placeholder rather than
+        // a @string reference: App Links verification requires a literal host,
+        // and a resource reference there fails the manifest merger.
+        manifestPlaceholders = [hostName: launchHost]
     }
 
     signingConfigs {
@@ -40,9 +48,9 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig System.getenv("ANDROID_KEYSTORE_FILE")
-                ? signingConfigs.release
-                : signingConfigs.debug
+            signingConfig = System.getenv("ANDROID_KEYSTORE_FILE")
+                ? signingConfigs.getByName("release")
+                : signingConfigs.getByName("debug")
         }
     }
 

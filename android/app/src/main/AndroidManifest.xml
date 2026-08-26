@@ -48,7 +48,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="@string/host_name" />
+                    android:host="${hostName}" />
             </intent-filter>
         </activity>
 
