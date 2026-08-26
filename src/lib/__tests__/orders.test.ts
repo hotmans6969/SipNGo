@@ -21,6 +21,7 @@ delete process.env.ADMIN_PASSWORD;
 
 const { default: getDb } = await import("../db");
 const { sql, closeClient } = await import("../sql");
+const { getSalesSummary } = await import("../sales");
 const {
   createOrder,
   updateOrderStatus,
@@ -286,6 +287,75 @@ describe("status transitions", () => {
     );
     expect(Number(ledger!.count)).toBe(0);
     expect((await getOrderWithItems(order.id))!.status).toBe("pending_payment");
+  });
+});
+
+describe("sales reporting", () => {
+  it("counts only orders that were actually paid for", async () => {
+    const scopedUser = await makeUser();
+    const itemId = await makeMenuItem(1000);
+
+    const before = (await getSalesSummary("today")).totalCents;
+
+    // Paid and being made: real takings.
+    const paid = await createOrder(scopedUser, [{ menuItemId: itemId, quantity: 1 }]);
+    await updateOrderStatus(paid.id, "paid");
+
+    // Never paid for: must not count.
+    await createOrder(scopedUser, [{ menuItemId: itemId, quantity: 1 }]);
+
+    // Paid then refunded: must not count either.
+    const refunded = await createOrder(scopedUser, [{ menuItemId: itemId, quantity: 1 }]);
+    await updateOrderStatus(refunded.id, "paid");
+    await updateOrderStatus(refunded.id, "cancelled");
+
+    const after = await getSalesSummary("today");
+    expect(after.totalCents - before).toBe(1000);
+  });
+
+  it("keeps counting an order through to collection", async () => {
+    const scopedUser = await makeUser();
+    const itemId = await makeMenuItem(500);
+    const before = (await getSalesSummary("today")).totalCents;
+
+    const order = await createOrder(scopedUser, [{ menuItemId: itemId, quantity: 1 }]);
+    for (const status of ["paid", "preparing", "ready", "picked_up"] as const) {
+      await updateOrderStatus(order.id, status);
+    }
+
+    expect((await getSalesSummary("today")).totalCents - before).toBe(500);
+  });
+
+  it("averages across paid orders only", async () => {
+    const summary = await getSalesSummary("today");
+    if (summary.orderCount > 0) {
+      expect(summary.averageOrderCents).toBe(
+        Math.round(summary.totalCents / summary.orderCount)
+      );
+    }
+  });
+
+  it("reports what sold, including toppings", async () => {
+    const scopedUser = await makeUser();
+    const itemId = await makeMenuItem(400);
+    const order = await createOrder(scopedUser, [
+      { menuItemId: itemId, quantity: 3, toppings: ["boba"] },
+    ]);
+    await updateOrderStatus(order.id, "paid");
+
+    const summary = await getSalesSummary("today");
+    expect(summary.itemsSold).toBeGreaterThanOrEqual(3);
+    // Three drinks each carrying boba is three portions of boba to prep.
+    const boba = summary.topToppings.find((t) => t.name === "Boba");
+    expect(boba?.quantity).toBeGreaterThanOrEqual(3);
+  });
+
+  it("widens the window for longer periods", async () => {
+    const today = await getSalesSummary("today");
+    const month = await getSalesSummary("month");
+    expect(today.from).toBe(today.to);
+    expect(month.from < month.to).toBe(true);
+    expect(month.totalCents).toBeGreaterThanOrEqual(today.totalCents);
   });
 });
 

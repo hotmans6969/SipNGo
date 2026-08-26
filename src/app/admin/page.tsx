@@ -222,14 +222,26 @@ export default function AdminDashboard() {
           </button>
           
           <Link
-            href="/admin/menu-manage"
-            className="flex items-center bg-stone-800 hover:bg-stone-700 text-white font-medium px-4 py-2 rounded-xl transition-colors text-sm"
+            href="/admin/sales"
+            className="flex items-center justify-center gap-2 bg-stone-900 hover:bg-stone-800 text-white font-bold px-6 py-4 rounded-xl transition-all active:scale-[0.97] shadow-md text-lg flex-1 sm:flex-none"
           >
-            Manage Menu
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 20h18M7 16V9m5 7V5m5 11v-4" />
+            </svg>
+            Sales
           </Link>
         </div>
       </div>
       
+      <div className="flex justify-end mb-4">
+        <Link
+          href="/admin/menu-manage"
+          className="text-sm font-medium text-stone-500 hover:text-stone-800 transition-colors"
+        >
+          Manage menu &rarr;
+        </Link>
+      </div>
+
       {scanError && (
          <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm">
            {scanError}

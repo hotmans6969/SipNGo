@@ -149,19 +149,19 @@ export default function MenuManagePage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
         <div>
-          <Link href="/admin" className="text-amber-600 hover:text-amber-700 font-medium text-sm mb-2 inline-block">
+          <Link href="/admin" className="text-amber-600 hover:text-amber-700 font-medium text-sm mb-1 inline-block">
             &larr; Back to Dashboard
           </Link>
-          <h1 className="text-3xl font-bold text-stone-900">Manage Menu</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-stone-900">Manage Menu</h1>
         </div>
         <button
           onClick={() => {
             resetForm();
             setShowForm(true);
           }}
-          className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-4 py-2 rounded-lg transition-colors"
+          className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-3.5 sm:py-2 rounded-xl sm:rounded-lg transition-all active:scale-[0.98]"
         >
           + Add Item
         </button>
@@ -218,7 +218,7 @@ export default function MenuManagePage() {
               />
             </div>
 
-            <div className="w-32">
+            <div className="w-full sm:w-32">
               <label className="block text-sm font-medium text-stone-700 mb-1">Price (RM)</label>
               <input
                 type="number"
@@ -231,11 +231,11 @@ export default function MenuManagePage() {
               />
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="submit"
                 disabled={saving}
-                className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors disabled:opacity-50"
+                className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3.5 sm:py-2.5 rounded-xl sm:rounded-lg transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 {saving ? "Saving..." : editingId ? "Update" : "Add Item"}
               </button>
@@ -256,12 +256,12 @@ export default function MenuManagePage() {
         {items.map((item) => (
           <div
             key={item.id}
-            className={`bg-white rounded-xl border p-4 flex items-center justify-between gap-4 ${
+            className={`bg-white rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 ${
               item.available ? "border-stone-200" : "border-red-200 bg-red-50/30"
             }`}
           >
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className={`font-semibold ${item.available ? "text-stone-900" : "text-stone-400 line-through"}`}>
                   {item.name}
                 </h3>
@@ -275,12 +275,16 @@ export default function MenuManagePage() {
               <p className="text-sm text-stone-400 truncate">{item.description}</p>
             </div>
 
-            <span className="font-semibold text-amber-600 whitespace-nowrap">{formatPrice(item.price_cents)}</span>
+            <span className="font-semibold text-amber-600 whitespace-nowrap sm:order-none">
+              {formatPrice(item.price_cents)}
+            </span>
 
-            <div className="flex gap-2 flex-shrink-0">
+            {/* Three across on a phone so each is a real target, inline once
+                there is room for them beside the name. */}
+            <div className="grid grid-cols-3 sm:flex gap-2 flex-shrink-0">
               <button
                 onClick={() => toggleAvailability(item)}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                className={`text-sm sm:text-xs px-3 py-2.5 sm:py-1.5 rounded-lg font-medium transition-all active:scale-95 ${
                   item.available
                     ? "bg-stone-100 hover:bg-stone-200 text-stone-600"
                     : "bg-green-100 hover:bg-green-200 text-green-700"
@@ -290,13 +294,13 @@ export default function MenuManagePage() {
               </button>
               <button
                 onClick={() => startEdit(item)}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 transition-colors"
+                className="text-sm sm:text-xs px-3 py-2.5 sm:py-1.5 rounded-lg font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 transition-all active:scale-95"
               >
                 Edit
               </button>
               <button
                 onClick={() => deleteItem(item.id)}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-100 hover:bg-red-200 text-red-700 transition-colors"
+                className="text-sm sm:text-xs px-3 py-2.5 sm:py-1.5 rounded-lg font-medium bg-red-100 hover:bg-red-200 text-red-700 transition-all active:scale-95"
               >
                 Delete
               </button>
