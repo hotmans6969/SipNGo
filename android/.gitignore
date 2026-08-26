@@ -1,0 +1,11 @@
+# Machine-specific and build output. None of this belongs in the repository.
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+captures/
+.externalNativeBuild/
+.cxx/
