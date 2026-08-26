@@ -130,7 +130,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleQRScanSuccess = async (decodedText: string) => {
+  const handleQRScanSuccess = useCallback(async (decodedText: string) => {
     try {
       setScanError("");
       const data = JSON.parse(decodedText);
@@ -162,7 +162,7 @@ export default function AdminDashboard() {
     } finally {
       setUpdatingId(null);
     }
-  };
+  }, [fetchOrders]);
 
 
   const statusActions: Record<string, { label: string; next: string; color: string }[]> = {

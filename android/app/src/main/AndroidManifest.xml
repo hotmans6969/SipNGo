@@ -6,6 +6,22 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- The QR scanner on the staff dashboard calls getUserMedia. In a Trusted
+         Web Activity the page runs in Chrome, but Android checks the *hosting*
+         app's permissions for camera access, so Chrome cannot grant it unless
+         the wrapper declares it here. Without this the scanner fails with no
+         prompt at all. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Declared optional so the app still installs on a device without a
+         camera; only staff use the scanner. -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.autofocus"
+        android:required="false" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
