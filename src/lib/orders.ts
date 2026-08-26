@@ -274,24 +274,28 @@ export async function getAllOrders({
   const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
   // Customer details come from a join rather than a lookup per order.
-  const rows = await sql.all<OrderRow & { customer_name: string; customer_email: string }>(
-    `SELECT o.id, o.user_id, o.order_number, o.order_date, o.status, o.total_cents,
-            o.stripe_session_id, o.stripe_payment_intent, o.qr_token,
-            o.created_at, o.updated_at,
-            COALESCE(u.name, 'Unknown') AS customer_name,
-            COALESCE(u.email, '')       AS customer_email
-       FROM orders o
-       LEFT JOIN users u ON u.id = o.user_id
-       ${whereClause}
-      ORDER BY o.created_at DESC
-      LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
-  );
-
-  const totalRow = await sql.one<{ count: number }>(
-    `SELECT COUNT(*) as count FROM orders o ${whereClause}`,
-    params
-  );
+  // The page of orders and the unpaginated count are independent, so they go
+  // out together. The dashboard polls this every few seconds, and each query
+  // is a round trip to the database.
+  const [rows, totalRow] = await Promise.all([
+    sql.all<OrderRow & { customer_name: string; customer_email: string }>(
+      `SELECT o.id, o.user_id, o.order_number, o.order_date, o.status, o.total_cents,
+              o.stripe_session_id, o.stripe_payment_intent, o.qr_token,
+              o.created_at, o.updated_at,
+              COALESCE(u.name, 'Unknown') AS customer_name,
+              COALESCE(u.email, '')       AS customer_email
+         FROM orders o
+         LEFT JOIN users u ON u.id = o.user_id
+         ${whereClause}
+        ORDER BY o.created_at DESC
+        LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    ),
+    sql.one<{ count: number }>(
+      `SELECT COUNT(*) as count FROM orders o ${whereClause}`,
+      params
+    ),
+  ]);
 
   const orders = await attachItems(
     rows.map((r) => ({ ...normaliseOrder(r), customer_name: r.customer_name, customer_email: r.customer_email }))

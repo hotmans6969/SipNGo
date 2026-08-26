@@ -30,11 +30,14 @@ export async function GET() {
   };
 
   try {
-    const row = await sql.one<{ ok: number }>("SELECT 1 as ok");
-    const migrations = await sql.one<{ count: number }>(
-      "SELECT COUNT(*) as count FROM schema_migrations"
-    );
-    const menu = await sql.one<{ count: number }>("SELECT COUNT(*) as count FROM menu_items");
+    // Issued together rather than one after another. Each is a network round
+    // trip to the database, so running them in sequence made this endpoint
+    // three times slower than it needed to be.
+    const [row, migrations, menu] = await Promise.all([
+      sql.one<{ ok: number }>("SELECT 1 as ok"),
+      sql.one<{ count: number }>("SELECT COUNT(*) as count FROM schema_migrations"),
+      sql.one<{ count: number }>("SELECT COUNT(*) as count FROM menu_items"),
+    ]);
 
     return NextResponse.json({
       status: "ok",
