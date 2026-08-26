@@ -6,13 +6,13 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * The app is a native shell around the deployed site rather than a bundled
  * copy of it. That is deliberate: the menu, orders, and accounts all live on
  * the server, so a bundled build could not work offline anyway — and this way
- * a push to Railway updates what every installed phone shows, with no new APK
+ * a push to main updates what every installed phone shows, with no new APK
  * and nothing for anyone to reinstall.
  *
  * Point it somewhere else for development:
  *   CAPACITOR_SERVER_URL=http://192.168.1.20:3000 npx cap sync android
  */
-const PRODUCTION_URL = "https://sipngo-production.up.railway.app";
+const PRODUCTION_URL = "https://sip-n-go.vercel.app";
 
 const serverUrl = process.env.CAPACITOR_SERVER_URL || PRODUCTION_URL;
 

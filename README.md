@@ -129,14 +129,14 @@ npm run lint       # eslint
 ## Android app
 
 `android/` is a Capacitor shell around the deployed site. It is not a copy of
-the app: it opens `https://sipngo-production.up.railway.app` in a native
+the app: it opens `https://sip-n-go.vercel.app` in a native
 WebView with the SipNGo icon, splash screen, and no browser chrome.
 
 That distinction is the important one:
 
 | Change | What you do |
 | --- | --- |
-| Menu, prices, pages, styling, features, bug fixes | Push to `main`. Railway redeploys and **every installed phone shows it on next open.** No new APK. |
+| Menu, prices, pages, styling, features, bug fixes | Push to `main`. Vercel redeploys and **every installed phone shows it on next open.** No new APK. |
 | App icon, app name, permissions, the URL it points at | Rebuild the APK and reinstall. |
 
 So almost nothing needs a rebuild.
