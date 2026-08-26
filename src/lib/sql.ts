@@ -1,4 +1,4 @@
-import { createClient, type Client, type InArgs, type Transaction } from "@libsql/client";
+import type { Client, InArgs, Transaction } from "@libsql/core/api";
 
 /**
  * Thin query layer over libSQL.
@@ -47,47 +47,74 @@ function wrap(executor: Client | Transaction): Queryable {
   };
 }
 
-let client: Client | undefined;
+let clientPromise: Promise<Client> | undefined;
+
+function databaseUrl(): string {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  // DATABASE_PATH keeps local setups and the test suite working without
+  // anyone needing to know about URLs.
+  return `file:${process.env.DATABASE_PATH || "sipngo.db"}`;
+}
 
 /**
- * The underlying client.
+ * Builds the client, choosing an implementation from the URL scheme.
  *
- * DATABASE_URL points at Turso in production (libsql://…). Locally and in
- * tests it is a `file:` URL, so development needs no network and no account.
+ * This split matters on serverless hosts. The package's default entry point
+ * depends on `libsql`, a native module, purely so that it can open local
+ * files. Bundled into a Vercel function that native dependency fails at
+ * runtime and every query 500s. `@libsql/client/web` is pure HTTP with no
+ * native code, so remote connections import that instead, and the node build
+ * is loaded lazily — only when a `file:` URL is actually in use, which never
+ * happens in production.
  */
-export function getClient(): Client {
-  if (!client) {
-    const url = process.env.DATABASE_URL || defaultLocalUrl();
-    const authToken = process.env.DATABASE_AUTH_TOKEN;
+async function createClientForUrl(url: string): Promise<Client> {
+  const authToken = process.env.DATABASE_AUTH_TOKEN;
+  const isRemote = /^(libsql|wss?|https?):/.test(url);
 
-    if (url.startsWith("libsql://") && !authToken) {
+  if (isRemote) {
+    if (!authToken) {
       throw new Error(
         "DATABASE_AUTH_TOKEN is required when DATABASE_URL points at a remote database."
       );
     }
-
-    client = createClient({ url, ...(authToken ? { authToken } : {}) });
+    const { createClient } = await import("@libsql/client/web");
+    return createClient({ url, authToken });
   }
-  return client;
+
+  const { createClient } = await import("@libsql/client/node");
+  return createClient({ url, ...(authToken ? { authToken } : {}) });
 }
 
-function defaultLocalUrl(): string {
-  // DATABASE_PATH is still honoured so existing local setups and the test
-  // suite keep working without knowing about URLs.
-  const path = process.env.DATABASE_PATH || "sipngo.db";
-  return `file:${path}`;
+/** The underlying client, created once per process. */
+export function getClient(): Promise<Client> {
+  if (!clientPromise) {
+    clientPromise = createClientForUrl(databaseUrl()).catch((error) => {
+      // A failed connection must not be cached, or a transient startup problem
+      // poisons every later request.
+      clientPromise = undefined;
+      throw error;
+    });
+  }
+  return clientPromise;
 }
 
 /** Query helpers bound to the shared connection. */
 export const sql: Queryable = {
-  one: (statement, args) => wrap(getClient()).one(statement, args),
-  all: (statement, args) => wrap(getClient()).all(statement, args),
-  run: (statement, args) => wrap(getClient()).run(statement, args),
+  async one(statement, args) {
+    return wrap(await getClient()).one(statement, args);
+  },
+  async all(statement, args) {
+    return wrap(await getClient()).all(statement, args);
+  },
+  async run(statement, args) {
+    return wrap(await getClient()).run(statement, args);
+  },
 };
 
 /** Runs several statements in one call. Used for schema DDL. */
 export async function executeMultiple(statements: string): Promise<void> {
-  await getClient().executeMultiple(statements);
+  const client = await getClient();
+  await client.executeMultiple(statements);
 }
 
 /**
@@ -99,7 +126,8 @@ export async function executeMultiple(statements: string): Promise<void> {
  * simultaneous checkouts can be handed the same number.
  */
 export async function transaction<T>(fn: (tx: Queryable) => Promise<T>): Promise<T> {
-  const tx = await getClient().transaction("write");
+  const client = await getClient();
+  const tx = await client.transaction("write");
   try {
     const result = await fn(wrap(tx));
     await tx.commit();
@@ -114,8 +142,30 @@ export async function transaction<T>(fn: (tx: Queryable) => Promise<T>): Promise
   }
 }
 
+/** Describes the configured connection without revealing the credentials. */
+export function describeConnection(): { mode: "remote" | "local"; host: string | null } {
+  const url = databaseUrl();
+  if (/^(libsql|wss?|https?):/.test(url)) {
+    let host: string | null = null;
+    try {
+      host = new URL(url.replace(/^libsql:/, "https:")).host;
+    } catch {
+      host = null;
+    }
+    return { mode: "remote", host };
+  }
+  return { mode: "local", host: null };
+}
+
 /** Closes the connection. Used by tests; a server keeps it open. */
-export function closeClient(): void {
-  client?.close();
-  client = undefined;
+export async function closeClient(): Promise<void> {
+  const pending = clientPromise;
+  clientPromise = undefined;
+  if (pending) {
+    try {
+      (await pending).close();
+    } catch {
+      // Nothing useful to do if it was already closed.
+    }
+  }
 }

@@ -64,8 +64,8 @@ beforeEach(async () => {
   userId = await makeUser();
 });
 
-afterAll(() => {
-  closeClient();
+afterAll(async () => {
+  await closeClient();
   try {
     fs.rmSync(tempDir, { recursive: true, force: true });
   } catch {

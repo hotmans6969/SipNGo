@@ -163,6 +163,6 @@ describe("migrating a pre-existing database", () => {
     const applied = await sql.one<{ c: number }>("SELECT COUNT(*) c FROM schema_migrations");
     expect(Number(applied!.c)).toBeGreaterThan(0);
 
-    closeClient();
+    await closeClient();
   });
 });
