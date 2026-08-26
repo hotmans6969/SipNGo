@@ -1,43 +1,52 @@
-import Database from "better-sqlite3";
-import path from "path";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { getAdminSeed } from "./env";
 import { seedMenuIfEmpty } from "./seed-menu";
+import { sql, executeMultiple, type Queryable } from "./sql";
 
-const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), "sipngo.db");
+/**
+ * Schema setup and first-run seeding.
+ *
+ * `getDb()` is what routes call. It resolves once the database is migrated and
+ * seeded, and memoises that work so concurrent requests share a single pass
+ * rather than racing each other through the migrations.
+ */
 
-let db: Database.Database | undefined;
+let ready: Promise<Queryable> | undefined;
 
-function getDb(): Database.Database {
-  if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma("journal_mode = WAL");
-    db.pragma("foreign_keys = ON");
-    migrate(db);
-    seedAdmin(db);
-    seedMenuIfEmpty(db);
+export default function getDb(): Promise<Queryable> {
+  if (!ready) {
+    ready = initialise().catch((error) => {
+      // Don't cache a failed initialisation, or every later request inherits
+      // a transient startup error.
+      ready = undefined;
+      throw error;
+    });
   }
-  return db;
+  return ready;
 }
 
-/** True if `table` already has `column`. Used to keep ALTERs idempotent. */
-function hasColumn(database: Database.Database, table: string, column: string): boolean {
-  const columns = database
-    .prepare(`PRAGMA table_info(${table})`)
-    .all() as Array<{ name: string }>;
+async function initialise(): Promise<Queryable> {
+  await migrate();
+  await seedAdmin();
+  await seedMenuIfEmpty(sql);
+  return sql;
+}
+
+/** True if `table` already has `column`. Keeps ALTERs idempotent. */
+async function hasColumn(table: string, column: string): Promise<boolean> {
+  const columns = await sql.all<{ name: string }>(`PRAGMA table_info(${table})`);
   return columns.some((c) => c.name === column);
 }
 
-function addColumnIfMissing(
-  database: Database.Database,
+async function addColumnIfMissing(
   table: string,
   column: string,
   definition: string
-): void {
-  if (!hasColumn(database, table, column)) {
-    database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+): Promise<void> {
+  if (!(await hasColumn(table, column))) {
+    await sql.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
 }
 
@@ -49,12 +58,12 @@ function addColumnIfMissing(
  * Migrations that add columns are written defensively, because databases
  * created before this system existed already have some of those columns.
  */
-const MIGRATIONS: Array<{ version: number; name: string; up: (d: Database.Database) => void }> = [
+const MIGRATIONS: Array<{ version: number; name: string; up: () => Promise<void> }> = [
   {
     version: 1,
     name: "base_schema",
-    up: (d) => {
-      d.exec(`
+    up: async () => {
+      await executeMultiple(`
         CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY,
           email TEXT UNIQUE NOT NULL,
@@ -114,24 +123,24 @@ const MIGRATIONS: Array<{ version: number; name: string; up: (d: Database.Databa
   {
     version: 2,
     name: "loyalty_points",
-    up: (d) => {
-      addColumnIfMissing(d, "users", "points", "INTEGER NOT NULL DEFAULT 0");
+    up: async () => {
+      await addColumnIfMissing("users", "points", "INTEGER NOT NULL DEFAULT 0");
     },
   },
   {
     version: 3,
     name: "order_item_customisations",
-    up: (d) => {
-      addColumnIfMissing(d, "order_items", "sugar_level", "TEXT");
-      addColumnIfMissing(d, "order_items", "temperature", "TEXT");
-      addColumnIfMissing(d, "order_items", "remark", "TEXT");
+    up: async () => {
+      await addColumnIfMissing("order_items", "sugar_level", "TEXT");
+      await addColumnIfMissing("order_items", "temperature", "TEXT");
+      await addColumnIfMissing("order_items", "remark", "TEXT");
     },
   },
   {
     version: 4,
     name: "login_attempts",
-    up: (d) => {
-      d.exec(`
+    up: async () => {
+      await executeMultiple(`
         CREATE TABLE IF NOT EXISTS login_attempts (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           bucket TEXT NOT NULL,
@@ -145,11 +154,11 @@ const MIGRATIONS: Array<{ version: number; name: string; up: (d: Database.Databa
   {
     version: 5,
     name: "points_ledger",
-    up: (d) => {
+    up: async () => {
       // A ledger makes point awards idempotent and reversible. Without it,
       // a replayed webhook could award the same order twice and a cancelled
       // order could never be clawed back.
-      d.exec(`
+      await executeMultiple(`
         CREATE TABLE IF NOT EXISTS points_ledger (
           id TEXT PRIMARY KEY,
           user_id TEXT NOT NULL,
@@ -168,18 +177,18 @@ const MIGRATIONS: Array<{ version: number; name: string; up: (d: Database.Databa
   {
     version: 6,
     name: "order_created_at_index",
-    up: (d) => {
+    up: async () => {
       // The admin dashboard sorts every query by created_at.
-      d.exec("CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)");
+      await sql.run("CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)");
     },
   },
   {
     version: 7,
     name: "app_config",
-    up: (d) => {
+    up: async () => {
       // Holds values generated for this installation, such as a session
       // signing key when the environment does not supply one.
-      d.exec(`
+      await executeMultiple(`
         CREATE TABLE IF NOT EXISTS app_config (
           key TEXT PRIMARY KEY,
           value TEXT NOT NULL,
@@ -190,8 +199,8 @@ const MIGRATIONS: Array<{ version: number; name: string; up: (d: Database.Databa
   },
 ];
 
-function migrate(database: Database.Database): void {
-  database.exec(`
+async function migrate(): Promise<void> {
+  await executeMultiple(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       version INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
@@ -199,23 +208,16 @@ function migrate(database: Database.Database): void {
     );
   `);
 
-  const applied = new Set(
-    (database.prepare("SELECT version FROM schema_migrations").all() as Array<{
-      version: number;
-    }>).map((r) => r.version)
-  );
-
-  const record = database.prepare(
-    "INSERT INTO schema_migrations (version, name) VALUES (?, ?)"
-  );
+  const rows = await sql.all<{ version: number }>("SELECT version FROM schema_migrations");
+  const applied = new Set(rows.map((r) => Number(r.version)));
 
   for (const migration of MIGRATIONS) {
     if (applied.has(migration.version)) continue;
-    const run = database.transaction(() => {
-      migration.up(database);
-      record.run(migration.version, migration.name);
-    });
-    run();
+    await migration.up();
+    await sql.run("INSERT OR IGNORE INTO schema_migrations (version, name) VALUES (?, ?)", [
+      migration.version,
+      migration.name,
+    ]);
   }
 }
 
@@ -228,55 +230,62 @@ function migrate(database: Database.Database): void {
  * shared constant this replaced — but a key set through JWT_SECRET is still
  * preferable, because it survives the database being recreated.
  */
-export function getOrCreateConfigValue(key: string, generate: () => string): string {
-  const database = getDb();
-  const existing = database.prepare("SELECT value FROM app_config WHERE key = ?").get(key) as
-    | { value: string }
-    | undefined;
+export async function getOrCreateConfigValue(
+  key: string,
+  generate: () => string
+): Promise<string> {
+  await getDb();
+
+  const existing = await sql.one<{ value: string }>(
+    "SELECT value FROM app_config WHERE key = ?",
+    [key]
+  );
   if (existing) return existing.value;
 
-  const value = generate();
   // INSERT OR IGNORE plus a re-read, so two simultaneous first requests agree.
-  database.prepare("INSERT OR IGNORE INTO app_config (key, value) VALUES (?, ?)").run(key, value);
-  return (
-    database.prepare("SELECT value FROM app_config WHERE key = ?").get(key) as { value: string }
-  ).value;
+  await sql.run("INSERT OR IGNORE INTO app_config (key, value) VALUES (?, ?)", [
+    key,
+    generate(),
+  ]);
+  const stored = await sql.one<{ value: string }>(
+    "SELECT value FROM app_config WHERE key = ?",
+    [key]
+  );
+  return stored!.value;
 }
 
 /**
- * Creates the initial admin from ADMIN_EMAIL / ADMIN_PASSWORD, once.
- * If those are unset no admin is created — promote a user by hand instead.
- * Existing admin accounts are never modified.
+ * Creates the initial admin, once.
+ *
+ * ADMIN_EMAIL / ADMIN_PASSWORD choose the credentials. With neither set, an
+ * admin is still created — with a random password printed once to the server
+ * log — because otherwise a fresh deployment has no way in at all. Nothing
+ * predictable is ever created.
  */
-function seedAdmin(database: Database.Database): void {
-  const existing = database
-    .prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1")
-    .get();
+async function seedAdmin(): Promise<void> {
+  const existing = await sql.one<{ id: string }>(
+    "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
+  );
   if (existing) return;
 
   const configured = getAdminSeed();
-
-  // With nothing configured, create an admin with a random password and print
-  // it once. Without this a fresh deployment has no way in at all; printing a
-  // generated password to the server log is safer than shipping a known one.
   const seed = configured ?? {
     email: "admin@sipngo.com",
     password: crypto.randomBytes(12).toString("base64url"),
   };
 
-  const emailTaken = database
-    .prepare("SELECT id FROM users WHERE email = ?")
-    .get(seed.email);
+  const emailTaken = await sql.one<{ id: string }>("SELECT id FROM users WHERE email = ?", [
+    seed.email,
+  ]);
   if (emailTaken) {
-    database.prepare("UPDATE users SET role = 'admin' WHERE email = ?").run(seed.email);
+    await sql.run("UPDATE users SET role = 'admin' WHERE email = ?", [seed.email]);
     return;
   }
 
-  database
-    .prepare(
-      "INSERT INTO users (id, email, name, password_hash, role) VALUES (?, ?, ?, ?, 'admin')"
-    )
-    .run(uuidv4(), seed.email, "Admin", bcrypt.hashSync(seed.password, 12));
+  await sql.run(
+    "INSERT INTO users (id, email, name, password_hash, role) VALUES (?, ?, ?, ?, 'admin')",
+    [uuidv4(), seed.email, "Admin", bcrypt.hashSync(seed.password, 12)]
+  );
 
   if (!configured) {
     console.warn(
@@ -296,5 +305,3 @@ function seedAdmin(database: Database.Database): void {
     );
   }
 }
-
-export default getDb;

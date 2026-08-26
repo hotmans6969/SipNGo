@@ -19,20 +19,20 @@ export async function PATCH(
 
     // Pickup by QR scan: the token must belong to this order.
     if (data.qrToken) {
-      const scanned = getOrderByQrToken(data.qrToken);
+      const scanned = await getOrderByQrToken(data.qrToken);
       if (!scanned || scanned.id !== id) {
         return NextResponse.json({ error: "Invalid QR code" }, { status: 400 });
       }
-      const updated = updateOrderStatus(id, "picked_up");
+      const updated = await updateOrderStatus(id, "picked_up");
       return NextResponse.json({ order: updated });
     }
 
-    if (!getOrder(id)) {
+    if (!(await getOrder(id))) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
     // updateOrderStatus enforces the allowed transitions.
-    const updated = updateOrderStatus(id, data.status!);
+    const updated = await updateOrderStatus(id, data.status!);
     return NextResponse.json({ order: updated });
   } catch (error) {
     if (error instanceof OrderError) {

@@ -14,7 +14,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const order = getOrderWithItems(id);
+    const order = await getOrderWithItems(id);
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
@@ -47,7 +47,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const order = getOrderWithItems(id);
+    const order = await getOrderWithItems(id);
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
@@ -64,7 +64,7 @@ export async function DELETE(
 
     // A paid order that is cancelled still needs its refund issued in Stripe.
     // That is deliberately a staff action, not an automatic one.
-    const updated = updateOrderStatus(id, "cancelled");
+    const updated = await updateOrderStatus(id, "cancelled");
     return NextResponse.json({
       order: updated,
       refundRequired: order.status === "paid",

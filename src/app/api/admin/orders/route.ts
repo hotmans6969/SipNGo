@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = parseQuery(request, orderQuerySchema);
     if (error) return error;
 
-    const { orders, total } = getAllOrders({
+    const { orders, total } = await getAllOrders({
       status: data.status,
       date: data.date,
       limit: data.limit,

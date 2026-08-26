@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { getCurrentUser } from "@/lib/auth";
 import getDb from "@/lib/db";
+import { sql } from "@/lib/sql";
 import { MENU_COLUMNS, DRINK_CATEGORIES } from "@/lib/menu";
 import { parseBody, createMenuItemSchema } from "@/lib/validation";
 
@@ -12,15 +13,14 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const db = getDb();
+    await getDb();
     const placeholders = DRINK_CATEGORIES.map(() => "?").join(",");
-    const items = db
-      .prepare(
-        `SELECT ${MENU_COLUMNS} FROM menu_items
-          WHERE category IN (${placeholders})
-          ORDER BY category, name`
-      )
-      .all(...DRINK_CATEGORIES);
+    const items = await sql.all(
+      `SELECT ${MENU_COLUMNS} FROM menu_items
+        WHERE category IN (${placeholders})
+        ORDER BY category, name`,
+      [...DRINK_CATEGORIES]
+    );
 
     return NextResponse.json({ items });
   } catch (error) {
@@ -39,14 +39,15 @@ export async function POST(request: NextRequest) {
     const { data, error } = await parseBody(request, createMenuItemSchema);
     if (error) return error;
 
-    const db = getDb();
+    await getDb();
     const id = uuidv4();
-    db.prepare(
+    await sql.run(
       `INSERT INTO menu_items (id, name, description, price_cents, category, image_url)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    ).run(id, data.name, data.description ?? "", data.priceCents, data.category, data.imageUrl ?? "");
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, data.name, data.description ?? "", data.priceCents, data.category, data.imageUrl ?? ""]
+    );
 
-    const item = db.prepare(`SELECT ${MENU_COLUMNS} FROM menu_items WHERE id = ?`).get(id);
+    const item = await sql.one(`SELECT ${MENU_COLUMNS} FROM menu_items WHERE id = ?`, [id]);
     return NextResponse.json({ item }, { status: 201 });
   } catch (error) {
     console.error("Admin add menu item error:", error);

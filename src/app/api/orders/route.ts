@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = parseQuery(request, orderQuerySchema);
     if (error) return error;
 
-    const orders = getUserOrders(user.id, { limit: data.limit, offset: data.offset });
+    const orders = await getUserOrders(user.id, { limit: data.limit, offset: data.offset });
     return NextResponse.json({ orders });
   } catch (error) {
     console.error("Get orders error:", error);
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await parseBody(request, createOrderSchema);
     if (error) return error;
 
-    const order = createOrder(user.id, data.items);
+    const order = await createOrder(user.id, data.items);
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {
     // Only OrderError carries a message meant for the customer. Anything else

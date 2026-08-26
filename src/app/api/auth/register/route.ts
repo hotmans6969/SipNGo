@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import getDb from "@/lib/db";
+import { sql } from "@/lib/sql";
 import { signToken, sessionCookieOptions, AUTH_COOKIE } from "@/lib/auth";
 import { checkRateLimit, recordAttempt, clientIp } from "@/lib/rate-limit";
 import { parseBody, registerSchema } from "@/lib/validation";
@@ -14,20 +15,20 @@ export async function POST(request: NextRequest) {
     if (error) return error;
 
     const ipBucket = `register:ip:${clientIp(request)}`;
-    const limit = checkRateLimit(ipBucket, PER_IP.limit, PER_IP.windowSeconds);
+    const limit = await checkRateLimit(ipBucket, PER_IP.limit, PER_IP.windowSeconds);
     if (!limit.allowed) {
       return NextResponse.json(
         { error: "Too many sign-up attempts. Please try again later." },
         { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
       );
     }
-    recordAttempt(ipBucket);
+    await recordAttempt(ipBucket);
 
-    const db = getDb();
+    await getDb();
 
     // The schema already lowercased and trimmed the address, so this check and
     // the insert below agree on exactly one canonical form.
-    const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(data.email);
+    const existing = await sql.one("SELECT id FROM users WHERE email = ?", [data.email]);
     if (existing) {
       return NextResponse.json(
         { error: "An account with this email already exists" },
@@ -39,9 +40,10 @@ export async function POST(request: NextRequest) {
     const passwordHash = await bcrypt.hash(data.password, 12);
 
     try {
-      db.prepare(
-        "INSERT INTO users (id, email, name, password_hash, role) VALUES (?, ?, ?, ?, 'customer')"
-      ).run(id, data.email, data.name, passwordHash);
+      await sql.run(
+        "INSERT INTO users (id, email, name, password_hash, role) VALUES (?, ?, ?, ?, 'customer')",
+        [id, data.email, data.name, passwordHash]
+      );
     } catch (insertError) {
       // Loses a race with a concurrent signup for the same address.
       if (
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
       throw insertError;
     }
 
-    const token = signToken({
+    const token = await signToken({
       id,
       email: data.email,
       name: data.name,

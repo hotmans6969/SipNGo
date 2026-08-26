@@ -10,7 +10,6 @@ const extraDevOrigins = (process.env.EXTRA_DEV_ORIGINS ?? "")
   .filter(Boolean);
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["better-sqlite3"],
   allowedDevOrigins: ["localhost", "127.0.0.1", ...extraDevOrigins],
   async headers() {
     return [
