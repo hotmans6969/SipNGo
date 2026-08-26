@@ -65,7 +65,16 @@ export default function QRScanner({ onScanSuccess, onClose }: QRScannerProps) {
         // `exact` pins this to the rear camera. Without it a phone opens the
         // selfie camera, which cannot be aimed at a customer's screen.
         { facingMode: { exact: "environment" } },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
+        {
+          fps: 10,
+          // Sized from the actual viewfinder rather than a fixed 250px, which
+          // overflows the video on a narrow phone.
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            const smallest = Math.min(viewfinderWidth, viewfinderHeight);
+            const size = Math.max(160, Math.floor(smallest * 0.7));
+            return { width: size, height: size };
+          },
+        },
         (decodedText) => {
           // Release the camera before handing over, so one code cannot fire
           // repeatedly while the request is in flight.
@@ -135,14 +144,17 @@ export default function QRScanner({ onScanSuccess, onClose }: QRScannerProps) {
         </div>
 
         <div className="p-4">
-          {/* Always mounted: html5-qrcode needs this element to exist before
-              start() is called, and mounting it on demand races that. */}
+          {/* Must stay in the layout, not just mounted. html5-qrcode measures
+              this element when start() is called to size the video, and a
+              display:none container measures zero — which is why the frame
+              came up empty. Left empty it collapses to no height anyway, so
+              it costs nothing while idle. */}
           <div
             id="qr-reader"
             className={
               phase === "scanning"
-                ? "w-full rounded-xl overflow-hidden shadow-sm border border-stone-200"
-                : "hidden"
+                ? "w-full min-h-[260px] rounded-xl overflow-hidden shadow-sm border border-stone-200 bg-stone-900"
+                : "w-full"
             }
           />
 
