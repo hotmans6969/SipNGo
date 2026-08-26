@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import getDb from "@/lib/db";
+import { sql } from "@/lib/sql";
 import { MENU_COLUMNS } from "@/lib/menu";
 import { parseBody, updateMenuItemSchema } from "@/lib/validation";
 
@@ -28,8 +29,8 @@ export async function PATCH(
     const { data, error } = await parseBody(request, updateMenuItemSchema);
     if (error) return error;
 
-    const db = getDb();
-    const existing = db.prepare("SELECT id FROM menu_items WHERE id = ?").get(id);
+    await getDb();
+    const existing = await sql.one("SELECT id FROM menu_items WHERE id = ?", [id]);
     if (!existing) {
       return NextResponse.json({ error: "Menu item not found" }, { status: 404 });
     }
@@ -44,9 +45,9 @@ export async function PATCH(
     }
 
     values.push(id);
-    db.prepare(`UPDATE menu_items SET ${assignments.join(", ")} WHERE id = ?`).run(...values);
+    await sql.run(`UPDATE menu_items SET ${assignments.join(", ")} WHERE id = ?`, values);
 
-    const item = db.prepare(`SELECT ${MENU_COLUMNS} FROM menu_items WHERE id = ?`).get(id);
+    const item = await sql.one(`SELECT ${MENU_COLUMNS} FROM menu_items WHERE id = ?`, [id]);
     return NextResponse.json({ item });
   } catch (error) {
     console.error("Admin update menu item error:", error);
@@ -65,21 +66,22 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const db = getDb();
+    await getDb();
 
-    const existing = db.prepare("SELECT id FROM menu_items WHERE id = ?").get(id);
+    const existing = await sql.one("SELECT id FROM menu_items WHERE id = ?", [id]);
     if (!existing) {
       return NextResponse.json({ error: "Menu item not found" }, { status: 404 });
     }
 
     // Deleting an item referenced by past orders would break order history,
     // so a sold item is retired by marking it unavailable instead.
-    const referenced = db
-      .prepare("SELECT 1 FROM order_items WHERE menu_item_id = ? LIMIT 1")
-      .get(id);
+    const referenced = await sql.one(
+      "SELECT 1 as present FROM order_items WHERE menu_item_id = ? LIMIT 1",
+      [id]
+    );
 
     if (referenced) {
-      db.prepare("UPDATE menu_items SET available = 0 WHERE id = ?").run(id);
+      await sql.run("UPDATE menu_items SET available = 0 WHERE id = ?", [id]);
       return NextResponse.json({
         success: true,
         retired: true,
@@ -87,7 +89,7 @@ export async function DELETE(
       });
     }
 
-    db.prepare("DELETE FROM menu_items WHERE id = ?").run(id);
+    await sql.run("DELETE FROM menu_items WHERE id = ?", [id]);
     return NextResponse.json({ success: true, retired: false });
   } catch (error) {
     console.error("Admin delete menu item error:", error);

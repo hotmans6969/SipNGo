@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await parseBody(request, checkoutSchema);
     if (error) return error;
 
-    const order = getOrderWithItems(data.orderId);
+    const order = await getOrderWithItems(data.orderId);
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     // throws if a production deploy is missing its Stripe key, rather than
     // quietly handing out free orders.
     if (isPaymentSimulated()) {
-      updateOrderStatus(order.id, "paid");
+      await updateOrderStatus(order.id, "paid");
       return NextResponse.json({
         success: true,
         mode: "demo",
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       metadata: { order_id: order.id, user_id: user.id },
     });
 
-    updateOrderStripeSession(order.id, session.id);
+    await updateOrderStripeSession(order.id, session.id);
 
     return NextResponse.json({ url: session.url });
   } catch (error) {

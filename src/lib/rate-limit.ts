@@ -1,4 +1,5 @@
 import getDb from "./db";
+import { sql } from "./sql";
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -6,30 +7,32 @@ export interface RateLimitResult {
 }
 
 /**
- * Fixed-window limiter backed by SQLite, so limits survive a restart and are
- * shared across requests. Buckets are arbitrary strings — callers combine a
- * route name with an IP and/or an identifier to limit both dimensions.
+ * Fixed-window limiter backed by the database, so limits survive a restart and
+ * hold across every serverless instance rather than each one keeping its own
+ * private counter. Buckets are arbitrary strings — callers combine a route
+ * name with an IP and/or an identifier to limit both dimensions.
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   bucket: string,
   limit: number,
   windowSeconds: number
-): RateLimitResult {
-  const db = getDb();
+): Promise<RateLimitResult> {
+  await getDb();
   const now = Math.floor(Date.now() / 1000);
   const windowStart = now - windowSeconds;
 
   // Opportunistic cleanup: drop anything older than the longest window we use.
-  db.prepare("DELETE FROM login_attempts WHERE attempted_at < ?").run(now - 86400);
+  await sql.run("DELETE FROM login_attempts WHERE attempted_at < ?", [now - 86400]);
 
-  const row = db
-    .prepare(
-      "SELECT COUNT(*) as count, MIN(attempted_at) as oldest FROM login_attempts WHERE bucket = ? AND attempted_at > ?"
-    )
-    .get(bucket, windowStart) as { count: number; oldest: number | null };
+  const row = await sql.one<{ count: number; oldest: number | null }>(
+    "SELECT COUNT(*) as count, MIN(attempted_at) as oldest FROM login_attempts WHERE bucket = ? AND attempted_at > ?",
+    [bucket, windowStart]
+  );
 
-  if (row.count >= limit) {
-    const retryAfter = row.oldest ? row.oldest + windowSeconds - now : windowSeconds;
+  const count = Number(row?.count ?? 0);
+  if (count >= limit) {
+    const oldest = row?.oldest == null ? null : Number(row.oldest);
+    const retryAfter = oldest ? oldest + windowSeconds - now : windowSeconds;
     return { allowed: false, retryAfterSeconds: Math.max(retryAfter, 1) };
   }
 
@@ -37,18 +40,18 @@ export function checkRateLimit(
 }
 
 /** Records one consumed attempt against a bucket. */
-export function recordAttempt(bucket: string): void {
-  const db = getDb();
-  db.prepare("INSERT INTO login_attempts (bucket, attempted_at) VALUES (?, ?)").run(
+export async function recordAttempt(bucket: string): Promise<void> {
+  await getDb();
+  await sql.run("INSERT INTO login_attempts (bucket, attempted_at) VALUES (?, ?)", [
     bucket,
-    Math.floor(Date.now() / 1000)
-  );
+    Math.floor(Date.now() / 1000),
+  ]);
 }
 
 /** Clears a bucket, e.g. after a successful login. */
-export function clearAttempts(bucket: string): void {
-  const db = getDb();
-  db.prepare("DELETE FROM login_attempts WHERE bucket = ?").run(bucket);
+export async function clearAttempts(bucket: string): Promise<void> {
+  await getDb();
+  await sql.run("DELETE FROM login_attempts WHERE bucket = ?", [bucket]);
 }
 
 /**

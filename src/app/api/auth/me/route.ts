@@ -8,7 +8,7 @@ export async function GET() {
       return NextResponse.json({ user: null }, { status: 401 });
     }
 
-    const dbUser = getUserFromDb(user.id);
+    const dbUser = await getUserFromDb(user.id);
     if (!dbUser) {
       return NextResponse.json({ user: null }, { status: 401 });
     }

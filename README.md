@@ -4,8 +4,8 @@ Order-ahead app for a drinks kiosk. Customers browse the menu, customise a
 drink, pay in-app, and collect with a QR code. Staff work a live order board and
 scan the code to close the order out.
 
-Built with Next.js 16 (App Router), SQLite via `better-sqlite3`, Stripe
-Checkout, and Capacitor for the Android wrapper.
+Built with Next.js 16 (App Router), libSQL/Turso, Stripe Checkout, and
+Capacitor for the Android wrapper.
 
 ---
 
@@ -42,12 +42,14 @@ a starter drinks menu is seeded if the menu is empty.
 | `STRIPE_WEBHOOK_SECRET` | production | Verifies incoming webhooks. |
 | `NEXT_PUBLIC_APP_URL` | yes | Used to build Stripe return URLs. |
 | `ICED_SURCHARGE_CENTS` | no | Surcharge for an iced drink, in sen. Defaults to `100`. |
-| `DATABASE_PATH` | no | Overrides the SQLite file location. |
+| `DATABASE_URL` | production | Turso database URL (`libsql://…`). Unset means a local file. |
+| `DATABASE_AUTH_TOKEN` | production | Turso auth token. Required whenever `DATABASE_URL` is remote. |
+| `DATABASE_PATH` | no | Local SQLite file, used only when `DATABASE_URL` is unset. |
 | `CAPACITOR_SERVER_URL` | no | Points the Android wrapper at a dev server. |
 | `EXTRA_DEV_ORIGINS` | no | Comma-separated extra origins Next accepts in dev (tunnels, LAN IPs). |
 
 `.env.local` is gitignored and must stay that way. Never commit it, and never
-commit `sipngo.db` — it contains real customer records.
+commit a local `*.db` file — it contains real customer records.
 
 ## Payments
 
@@ -92,16 +94,26 @@ it is a staff action. **Cancelling a paid order does not issue a Stripe refund
 
 ## Database
 
-SQLite, one file, migrated on boot by an ordered list in `src/lib/db.ts`.
-Migrations are append-only and tracked in `schema_migrations`; never edit one
-that has shipped, add a new entry instead.
+libSQL, spoken over the network in production and against a local file in
+development. Schema changes are an ordered, append-only list in
+`src/lib/db.ts`, tracked in `schema_migrations` and applied on first request;
+never edit a migration that has shipped, add a new entry instead.
 
-> **Deployment constraint:** `better-sqlite3` writes to the local filesystem, so
-> this app must run on a single long-lived instance with persistent disk (a VPS,
-> Fly.io with a volume, a Raspberry Pi in the shop). It will **not** work on
-> Vercel or any serverless platform — the filesystem there is read-only and
-> per-instance, so orders would vanish. Moving to Turso/libSQL or Postgres is
-> the path to serverless hosting.
+Every query goes through `src/lib/sql.ts` (`one` / `all` / `run` /
+`transaction`) rather than the driver directly, so result-shape handling lives
+in one place.
+
+**Local development needs no account.** With `DATABASE_URL` unset the app opens
+`sipngo.db` as a plain file. The test suite does the same against a temporary
+file, so it runs offline.
+
+**Production uses [Turso](https://turso.tech).** Create a database, then set
+`DATABASE_URL` and `DATABASE_AUTH_TOKEN`. Because the data no longer lives on
+the server's filesystem, the app runs anywhere — including serverless hosts
+like Vercel that have no persistent disk.
+
+> One caveat inherited from SQLite: `datetime('now')` and friends run on the
+> database, so timestamps are UTC. `src/lib/dates.ts` converts for display.
 
 ## Commands
 

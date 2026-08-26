@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import getDb from "@/lib/db";
+import { sql } from "@/lib/sql";
 import { signToken, sessionCookieOptions, AUTH_COOKIE } from "@/lib/auth";
 import { checkRateLimit, recordAttempt, clearAttempts, clientIp } from "@/lib/rate-limit";
 import { parseBody, loginSchema } from "@/lib/validation";
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
       [accountBucket, PER_ACCOUNT],
       [ipBucket, PER_IP],
     ] as const) {
-      const limit = checkRateLimit(bucket, rule.limit, rule.windowSeconds);
+      const limit = await checkRateLimit(bucket, rule.limit, rule.windowSeconds);
       if (!limit.allowed) {
         return NextResponse.json(
           { error: "Too many login attempts. Please try again later." },
@@ -32,12 +33,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const db = getDb();
-    const user = db
-      .prepare("SELECT id, email, name, password_hash, role FROM users WHERE email = ?")
-      .get(data.email) as
-      | { id: string; email: string; name: string; password_hash: string; role: string }
-      | undefined;
+    await getDb();
+    const user = await sql.one<{
+      id: string;
+      email: string;
+      name: string;
+      password_hash: string;
+      role: string;
+    }>("SELECT id, email, name, password_hash, role FROM users WHERE email = ?", [data.email]);
 
     // Compare against a dummy hash when the account is missing, so a failed
     // lookup takes the same time as a wrong password.
@@ -45,14 +48,14 @@ export async function POST(request: NextRequest) {
     const valid = await bcrypt.compare(data.password, hash);
 
     if (!user || !valid) {
-      recordAttempt(accountBucket);
-      recordAttempt(ipBucket);
+      await recordAttempt(accountBucket);
+      await recordAttempt(ipBucket);
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
 
-    clearAttempts(accountBucket);
+    await clearAttempts(accountBucket);
 
-    const token = signToken({
+    const token = await signToken({
       id: user.id,
       email: user.email,
       name: user.name,

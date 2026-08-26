@@ -3,15 +3,18 @@ import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { getOrder, getOrderByStripeSession, markOrderPaid, updateOrderStatus } from "@/lib/orders";
 import { isPaymentSimulated } from "@/lib/env";
+import getDb from "@/lib/db";
+import { sql } from "@/lib/sql";
+import type { OrderStatus } from "@/lib/order-status";
 
 /**
  * Resolves the order a session belongs to. client_reference_id is set at
  * checkout; the session lookup is the fallback for older sessions.
  */
-function resolveOrderId(session: Stripe.Checkout.Session): string | null {
+async function resolveOrderId(session: Stripe.Checkout.Session): Promise<string | null> {
   const reference = session.client_reference_id ?? session.metadata?.order_id;
-  if (reference && getOrder(reference)) return reference;
-  return getOrderByStripeSession(session.id)?.id ?? null;
+  if (reference && (await getOrder(reference))) return reference;
+  return (await getOrderByStripeSession(session.id))?.id ?? null;
 }
 
 export async function POST(request: NextRequest) {
@@ -40,14 +43,14 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const orderId = resolveOrderId(session);
+        const orderId = await resolveOrderId(session);
         if (orderId) {
           const paymentIntent =
             typeof session.payment_intent === "string"
               ? session.payment_intent
               : session.payment_intent?.id ?? "";
           // Idempotent: a replayed event will not award points twice.
-          markOrderPaid(orderId, paymentIntent);
+          await markOrderPaid(orderId, paymentIntent);
         }
         break;
       }
@@ -56,10 +59,10 @@ export async function POST(request: NextRequest) {
         // The customer abandoned checkout. Release the order so it does not
         // sit in pending_payment forever.
         const session = event.data.object as Stripe.Checkout.Session;
-        const orderId = resolveOrderId(session);
-        const order = orderId ? getOrder(orderId) : null;
+        const orderId = await resolveOrderId(session);
+        const order = orderId ? await getOrder(orderId) : null;
         if (order && order.status === "pending_payment") {
-          updateOrderStatus(order.id, "cancelled");
+          await updateOrderStatus(order.id, "cancelled");
         }
         break;
       }
@@ -72,12 +75,13 @@ export async function POST(request: NextRequest) {
             : charge.payment_intent?.id;
         if (intentId) {
           // Cancelling reverses the loyalty points through the ledger.
-          const { default: getDb } = await import("@/lib/db");
-          const row = getDb()
-            .prepare("SELECT id, status FROM orders WHERE stripe_payment_intent = ?")
-            .get(intentId) as { id: string; status: string } | undefined;
+          await getDb();
+          const row = await sql.one<{ id: string; status: OrderStatus }>(
+            "SELECT id, status FROM orders WHERE stripe_payment_intent = ?",
+            [intentId]
+          );
           if (row && row.status !== "cancelled" && row.status !== "picked_up") {
-            updateOrderStatus(row.id, "cancelled");
+            await updateOrderStatus(row.id, "cancelled");
           }
         }
         break;

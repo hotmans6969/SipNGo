@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import crypto from "node:crypto";
 import getDb, { getOrCreateConfigValue } from "./db";
 import { getConfiguredJwtSecret, isProduction } from "./env";
+import { sql } from "./sql";
 
 export const AUTH_COOKIE = "auth_token";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
@@ -23,24 +24,25 @@ export interface UserPayload {
  * a constant baked into the source — that constant was readable by anyone with
  * the repository and let them mint their own admin sessions.
  */
-function sessionSecret(): string {
-  return (
-    getConfiguredJwtSecret() ??
-    getOrCreateConfigValue("jwt_secret", () => crypto.randomBytes(48).toString("base64url"))
+async function sessionSecret(): Promise<string> {
+  const configured = getConfiguredJwtSecret();
+  if (configured) return configured;
+  return getOrCreateConfigValue("jwt_secret", () =>
+    crypto.randomBytes(48).toString("base64url")
   );
 }
 
-export function signToken(user: UserPayload): string {
+export async function signToken(user: UserPayload): Promise<string> {
   return jwt.sign(
     { id: user.id, email: user.email, name: user.name, role: user.role },
-    sessionSecret(),
+    await sessionSecret(),
     { expiresIn: "7d" }
   );
 }
 
-export function verifyToken(token: string): UserPayload | null {
+export async function verifyToken(token: string): Promise<UserPayload | null> {
   try {
-    return jwt.verify(token, sessionSecret()) as UserPayload;
+    return jwt.verify(token, await sessionSecret()) as UserPayload;
   } catch {
     return null;
   }
@@ -80,11 +82,13 @@ export async function requireAdmin(): Promise<UserPayload> {
   return user;
 }
 
-export function getUserFromDb(id: string) {
-  const db = getDb();
-  return db
-    .prepare(
-      "SELECT id, email, name, role, points, created_at FROM users WHERE id = ?"
-    )
-    .get(id) as (UserPayload & { created_at: string; points: number }) | undefined;
+export async function getUserFromDb(id: string) {
+  await getDb();
+  const row = await sql.one<UserPayload & { created_at: string; points: number }>(
+    "SELECT id, email, name, role, points, created_at FROM users WHERE id = ?",
+    [id]
+  );
+  if (!row) return undefined;
+  // libSQL can hand back a bigint for INTEGER columns.
+  return { ...row, points: Number(row.points ?? 0) };
 }
