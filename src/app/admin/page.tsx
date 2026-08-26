@@ -10,6 +10,7 @@ import { formatMalaysiaTime } from "@/lib/dates";
 import { formatPrice } from "@/lib/format";
 import { usePolling } from "@/hooks/usePolling";
 import { useOrderAlarm } from "@/hooks/useOrderAlarm";
+import { canTransition, type OrderStatus } from "@/lib/order-status";
 
 interface OrderItem {
   id: string;
@@ -37,6 +38,7 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [awaitingCount, setAwaitingCount] = useState(0);
+  const [actionError, setActionError] = useState("");
   
   // Scanner state
   const [showScanner, setShowScanner] = useState(false);
@@ -104,6 +106,7 @@ export default function AdminDashboard() {
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     setUpdatingId(orderId);
+    setActionError("");
     try {
       const res = await fetch(`/api/admin/orders/${orderId}`, {
         method: "PATCH",
@@ -113,9 +116,15 @@ export default function AdminDashboard() {
 
       if (res.ok) {
         await fetchOrders();
+        return;
       }
+
+      // A rejected change used to be swallowed here, so the button simply did
+      // nothing and gave the counter no idea why.
+      const data = await res.json().catch(() => ({}));
+      setActionError(data.error || `Could not update the order (${res.status}).`);
     } catch {
-      // silently fail
+      setActionError("Could not reach the server. Check the connection and try again.");
     } finally {
       setUpdatingId(null);
     }
@@ -220,6 +229,19 @@ export default function AdminDashboard() {
          <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm">
            {scanError}
          </div>
+      )}
+
+      {actionError && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm flex items-center justify-between gap-3 animate-fade-in-up">
+          <span>{actionError}</span>
+          <button
+            onClick={() => setActionError("")}
+            aria-label="Dismiss"
+            className="shrink-0 text-red-500 hover:text-red-700 transition-all active:scale-90"
+          >
+            ✕
+          </button>
+        </div>
       )}
 
       {/* An alarm nobody can hear is worse than no alarm, so a blocked audio
@@ -335,7 +357,7 @@ export default function AdminDashboard() {
                     </div>
                   )}
 
-                  {order.status !== "cancelled" && order.status !== "picked_up" && (
+                  {canTransition(order.status as OrderStatus, "cancelled") && (
                     <button
                       onClick={() => {
                         if (confirm(`Are you sure you want to cancel order #${order.order_number}?`)) {

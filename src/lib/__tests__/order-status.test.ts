@@ -32,11 +32,17 @@ describe("order status transitions", () => {
     expect(canTransition("pending_payment", "picked_up")).toBe(false);
   });
 
-  it("allows cancelling up to the point of preparation", () => {
+  it("allows cancelling from every stage before collection", () => {
+    // Including "ready": a customer who never turns up leaves a made drink
+    // that staff still have to be able to close out.
     expect(canTransition("pending_payment", "cancelled")).toBe(true);
     expect(canTransition("paid", "cancelled")).toBe(true);
     expect(canTransition("preparing", "cancelled")).toBe(true);
-    expect(canTransition("ready", "cancelled")).toBe(false);
+    expect(canTransition("ready", "cancelled")).toBe(true);
+  });
+
+  it("cannot cancel an order that was already collected", () => {
+    expect(canTransition("picked_up", "cancelled")).toBe(false);
   });
 
   it("only lets customers cancel before the drink is made", () => {

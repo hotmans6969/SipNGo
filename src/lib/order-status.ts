@@ -18,7 +18,10 @@ const TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
   pending_payment: ["paid", "cancelled"],
   paid: ["preparing", "cancelled"],
   preparing: ["ready", "cancelled"],
-  ready: ["picked_up"],
+  // A made drink still has to be cancellable: customers do not always turn
+  // up, and without this the order is stuck at "ready" for ever with no way
+  // to close it out.
+  ready: ["picked_up", "cancelled"],
   picked_up: [],
   cancelled: [],
 };
