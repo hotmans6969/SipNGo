@@ -11,6 +11,13 @@ export default function Navbar() {
   const { totalItems } = useCart();
   const pathname = usePathname();
   const cartBumping = useBumpOnChange(totalItems);
+  const isStaff = user?.role === "admin" || user?.role === "staff";
+
+  // isActive matches by prefix, so /admin/sales would light the Orders tab as
+  // well as its own. Orders covers the dashboard and everything under it
+  // except the pages that have a tab of their own.
+  const onSales = !!pathname?.startsWith("/admin/sales");
+  const onOrders = !!pathname?.startsWith("/admin") && !onSales;
 
   const isActive = (path: string) => pathname === path || (path !== "/" && pathname?.startsWith(path));
 
@@ -38,21 +45,32 @@ export default function Navbar() {
       <nav className="bg-white border-t border-stone-200 fixed bottom-0 left-0 right-0 z-50 safe-area-pb shadow-[0_-5px_20px_-15px_rgba(0,0,0,0.3)]">
         <div className="max-w-md mx-auto flex justify-around items-center h-16">
           
-          <Link href="/menu" className={tabClasses(!!isActive("/menu"))}>
-            <svg className={iconClasses(!!isActive("/menu"))} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-            </svg>
-            <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Menu</span>
-          </Link>
+          {/* Staff have no use for the ordering menu — they are not buying
+              drinks from their own counter. That slot shows sales instead. */}
+          {isStaff ? (
+            <Link href="/admin/sales" className={tabClasses(onSales)}>
+              <svg className={iconClasses(onSales)} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 20h18M7 16V9m5 7V5m5 11v-4" />
+              </svg>
+              <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Sales</span>
+            </Link>
+          ) : (
+            <Link href="/menu" className={tabClasses(!!isActive("/menu"))}>
+              <svg className={iconClasses(!!isActive("/menu"))} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+              <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Menu</span>
+            </Link>
+          )}
 
-          {user?.role === "admin" || user?.role === "staff" ? (
-            <Link href="/admin" className={`${tabClasses(!!isActive("/admin"))} relative`}>
+          {isStaff ? (
+            <Link href="/admin" className={`${tabClasses(onOrders)} relative`}>
               <div className="relative">
-                <svg className={iconClasses(!!isActive("/admin"))} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className={iconClasses(onOrders)} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                 </svg>
               </div>
-              <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Dashboard</span>
+              <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Orders</span>
             </Link>
           ) : (
             <Link href="/cart" className={`${tabClasses(!!isActive("/cart"))} relative`}>
