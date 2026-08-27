@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
+import { useDialog } from "@/components/DialogProvider";
 
 interface MenuItem {
   id: string;
@@ -30,6 +31,7 @@ export default function MenuManagePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const { confirm } = useDialog();
 
   const fetchItems = async () => {
     const res = await fetch("/api/admin/menu");
@@ -127,7 +129,15 @@ export default function MenuManagePage() {
   };
 
   const deleteItem = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this item?")) return;
+    const ok = await confirm({
+      title: "Remove this item?",
+      message:
+        "If it appears in past orders it is hidden from the menu instead of deleted, so order history stays intact.",
+      confirmLabel: "Remove",
+      cancelLabel: "Keep it",
+      tone: "danger",
+    });
+    if (!ok) return;
     await fetch(`/api/admin/menu/${id}`, { method: "DELETE" });
     await fetchItems();
   };

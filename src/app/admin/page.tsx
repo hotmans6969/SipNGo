@@ -12,6 +12,7 @@ import { usePolling } from "@/hooks/usePolling";
 import { useOrderAlarm } from "@/hooks/useOrderAlarm";
 import { canTransition, type OrderStatus } from "@/lib/order-status";
 import ItemCustomisations from "@/components/ItemCustomisations";
+import { useDialog } from "@/components/DialogProvider";
 
 interface OrderItem {
   id: string;
@@ -44,6 +45,7 @@ export default function AdminDashboard() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [awaitingCount, setAwaitingCount] = useState(0);
   const [actionError, setActionError] = useState("");
+  const { confirm, notify } = useDialog();
   
   // Scanner state
   const [showScanner, setShowScanner] = useState(false);
@@ -157,17 +159,25 @@ export default function AdminDashboard() {
       const resData = await res.json();
       
       if (res.ok) {
-        alert(`Order #${data.orderNumber} Completed Successfully!`);
+        await notify({
+          title: `Order #${String(resData.order?.order_number ?? "").padStart(3, "0")} collected`,
+          message: "Handed over and closed out.",
+          tone: "success",
+        });
         await fetchOrders();
       } else {
-        alert(resData.error || "Failed to complete order. Is it in 'Ready' status?");
+        await notify({
+          title: "Could not complete the order",
+          message: resData.error || "It may not be ready for collection yet.",
+          tone: "danger",
+        });
       }
     } catch {
       setScanError("Failed to parse QR Code");
     } finally {
       setUpdatingId(null);
     }
-  }, [fetchOrders]);
+  }, [fetchOrders, notify]);
 
 
   const statusActions: Record<string, { label: string; next: string; color: string }[]> = {
@@ -374,10 +384,18 @@ export default function AdminDashboard() {
 
                   {canTransition(order.status as OrderStatus, "cancelled") && (
                     <button
-                      onClick={() => {
-                        if (confirm(`Are you sure you want to cancel order #${order.order_number}?`)) {
-                           updateStatus(order.id, "cancelled");
-                        }
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: `Cancel order #${String(order.order_number).padStart(3, "0")}?`,
+                          message:
+                            order.status === "pending_payment"
+                              ? "This order has not been paid for."
+                              : "The customer has paid. Any refund is issued separately in Stripe.",
+                          confirmLabel: "Cancel order",
+                          cancelLabel: "Keep it",
+                          tone: "danger",
+                        });
+                        if (ok) updateStatus(order.id, "cancelled");
                       }}
                       disabled={updatingId === order.id}
                       className="bg-stone-100 hover:bg-red-50 text-stone-600 hover:text-red-600 font-medium px-4 py-2 border border-transparent hover:border-red-200 rounded-lg transition-colors text-sm disabled:opacity-50 text-center"

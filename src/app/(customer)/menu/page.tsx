@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import MenuItemCard from "@/components/MenuItemCard";
+import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 
 interface MenuItem {
   id: string;
@@ -14,6 +16,7 @@ interface MenuItem {
 }
 
 export default function MenuPage() {
+  const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("all");
@@ -48,6 +51,39 @@ export default function MenuPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Signed-out prompt. The menu is browsable without an account so a
+          first-time visitor can see what is sold, but ordering needs one, and
+          this says why it is worth making. */}
+      {!authLoading && !user && (
+        <div className="bg-stone-900 text-white rounded-2xl p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4 animate-fade-in-up">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xl" aria-hidden="true">⭐</span>
+              <h2 className="font-bold">Sign in to order</h2>
+            </div>
+            <p className="text-sm text-stone-300">
+              Collect a point for every RM 1 you spend, and put them towards
+              rewards. You will also get a notification the moment your drink
+              is ready.
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Link
+              href="/auth/register"
+              className="flex-1 sm:flex-none text-center bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-3 rounded-xl transition-all active:scale-95"
+            >
+              Sign up
+            </Link>
+            <Link
+              href="/auth/login"
+              className="flex-1 sm:flex-none text-center bg-stone-800 hover:bg-stone-700 text-white font-semibold px-5 py-3 rounded-xl transition-all active:scale-95"
+            >
+              Log in
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Event/Offer Banner */}
       <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-6 mb-8 text-white shadow-md">
         <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-3 inline-block">Special Offer</span>
