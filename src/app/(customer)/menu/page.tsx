@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import MenuItemCard from "@/components/MenuItemCard";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import WelcomeVoucherPopup from "@/components/WelcomeVoucherPopup";
 
 interface MenuItem {
   id: string;
@@ -51,6 +52,9 @@ export default function MenuPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Announces the signup voucher on the first visit after registering. */}
+      <WelcomeVoucherPopup />
+
       {/* Signed-out prompt. The menu is browsable without an account so a
           first-time visitor can see what is sold, but ordering needs one, and
           this says why it is worth making. */}
