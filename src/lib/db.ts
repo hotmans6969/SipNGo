@@ -228,6 +228,35 @@ const MIGRATIONS: Array<{ version: number; name: string; up: () => Promise<void>
       await addColumnIfMissing("order_items", "toppings", "TEXT");
     },
   },
+  {
+    version: 10,
+    name: "vouchers",
+    up: async () => {
+      await executeMultiple(`
+        CREATE TABLE IF NOT EXISTS vouchers (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          kind TEXT NOT NULL CHECK (kind IN ('free_drink', 'discount')),
+          discount_cents INTEGER NOT NULL DEFAULT 0,
+          label TEXT NOT NULL,
+          source TEXT NOT NULL CHECK (source IN ('signup', 'points')),
+          points_spent INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          expires_at TEXT,
+          redeemed_at TEXT,
+          order_id TEXT,
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_vouchers_user ON vouchers(user_id);
+        CREATE INDEX IF NOT EXISTS idx_vouchers_order ON vouchers(order_id);
+      `);
+
+      // An order records what it was discounted by, so a receipt still adds
+      // up years later even if the voucher row is changed or removed.
+      await addColumnIfMissing("orders", "voucher_id", "TEXT");
+      await addColumnIfMissing("orders", "discount_cents", "INTEGER NOT NULL DEFAULT 0");
+    },
+  },
 ];
 
 async function migrate(): Promise<void> {

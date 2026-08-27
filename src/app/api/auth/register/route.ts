@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import getDb from "@/lib/db";
-import { sql } from "@/lib/sql";
+import { sql, transaction } from "@/lib/sql";
+import { grantSignupVoucher } from "@/lib/vouchers";
 import { signToken, sessionCookieOptions, AUTH_COOKIE } from "@/lib/auth";
 import { checkRateLimit, recordAttempt, clientIp } from "@/lib/rate-limit";
 import { parseBody, registerSchema } from "@/lib/validation";
@@ -40,10 +41,15 @@ export async function POST(request: NextRequest) {
     const passwordHash = await bcrypt.hash(data.password, 12);
 
     try {
-      await sql.run(
-        "INSERT INTO users (id, email, name, password_hash, role) VALUES (?, ?, ?, ?, 'customer')",
-        [id, data.email, data.name, passwordHash]
-      );
+      // The account and its welcome voucher are created together, so a failed
+      // signup cannot leave a voucher belonging to nobody.
+      await transaction(async (tx) => {
+        await tx.run(
+          "INSERT INTO users (id, email, name, password_hash, role) VALUES (?, ?, ?, ?, 'customer')",
+          [id, data.email, data.name, passwordHash]
+        );
+        await grantSignupVoucher(tx, id);
+      });
     } catch (insertError) {
       // Loses a race with a concurrent signup for the same address.
       if (

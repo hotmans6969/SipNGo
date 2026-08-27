@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
 import { formatToppings } from "@/lib/toppings";
+import { discountFor, type VoucherRow } from "@/lib/rewards";
 import { formatMalaysiaTime } from "@/lib/dates";
 import StatusBadge from "@/components/StatusBadge";
 import { usePolling } from "@/hooks/usePolling";
@@ -34,6 +35,8 @@ export default function CartPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
+  const [vouchers, setVouchers] = useState<VoucherRow[]>([]);
+  const [voucherId, setVoucherId] = useState<string | null>(null);
   const router = useRouter();
 
 
@@ -60,6 +63,20 @@ export default function CartPage() {
 
     fetchOrders();
     fetchOrdersRef.current = fetchOrders;
+
+    // Only vouchers that can still be spent are offered.
+    fetch("/api/vouchers")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        const usable = (data.vouchers as VoucherRow[]).filter(
+          (v) =>
+            !v.redeemed_at &&
+            (!v.expires_at || new Date(v.expires_at.replace(" ", "T") + "Z") > new Date())
+        );
+        setVouchers(usable);
+      })
+      .catch(() => {});
   }, [user]);
 
   // Polling pauses while the tab is hidden.
@@ -67,6 +84,14 @@ export default function CartPage() {
 
   // Anything still moving through the counter. Collected and cancelled orders
   // belong in history, not on the page you watch while you wait.
+  // The discount shown here is computed with the same function the server
+  // uses, so the figure on the button is the figure that gets charged.
+  const chosenVoucher = vouchers.find((v) => v.id === voucherId) ?? null;
+  const discountCents = chosenVoucher
+    ? discountFor(chosenVoucher, items.map((i) => i.priceCents), totalCents)
+    : 0;
+  const payableCents = Math.max(0, totalCents - discountCents);
+
   const ONGOING = ["pending_payment", "paid", "preparing", "ready"];
   const ongoing = orders.filter((o) => ONGOING.includes(o.status));
 
@@ -89,6 +114,7 @@ export default function CartPage() {
           // quantity silently discarded temperature, sugar, remarks and
           // toppings, so the drink made was not the drink ordered and no
           // surcharge was ever applied.
+          voucherId: voucherId ?? undefined,
           items: items.map((i) => ({
             menuItemId: i.menuItemId,
             quantity: i.quantity,
@@ -229,9 +255,57 @@ export default function CartPage() {
               <span className="text-stone-600">Subtotal ({totalItems} items)</span>
               <span className="font-semibold text-stone-900">{formatPrice(totalCents)}</span>
             </div>
+            {vouchers.length > 0 && (
+              <div className="mb-4 pt-4 border-t border-stone-100">
+                <p className="text-sm font-semibold text-stone-700 mb-2">Apply a voucher</p>
+                <div className="space-y-2">
+                  {vouchers.map((voucher) => {
+                    const selected = voucherId === voucher.id;
+                    return (
+                      <button
+                        key={voucher.id}
+                        onClick={() => setVoucherId(selected ? null : voucher.id)}
+                        aria-pressed={selected}
+                        className={`w-full text-left p-3 rounded-xl border transition-all active:scale-[0.99] flex items-center gap-3 ${
+                          selected
+                            ? "border-amber-500 bg-amber-50 ring-1 ring-amber-500"
+                            : "border-stone-200 hover:bg-stone-50"
+                        }`}
+                      >
+                        <span className="text-xl" aria-hidden="true">
+                          {voucher.kind === "free_drink" ? "🎁" : "🎟️"}
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block font-medium text-stone-900 truncate">
+                            {voucher.label}
+                          </span>
+                          {voucher.expires_at && (
+                            <span className="block text-xs text-stone-400">
+                              Use by {voucher.expires_at.slice(0, 10)}
+                            </span>
+                          )}
+                        </span>
+                        {selected && <span className="text-amber-600 font-bold">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-stone-400 mt-2">One voucher per order.</p>
+              </div>
+            )}
+
+            {discountCents > 0 && (
+              <div className="flex justify-between items-center mb-4 text-green-700 animate-fade-in">
+                <span className="text-sm font-medium">Voucher</span>
+                <span className="font-semibold">−{formatPrice(discountCents)}</span>
+              </div>
+            )}
+
             <div className="flex justify-between items-center mb-6 pt-4 border-t border-stone-100">
               <span className="text-lg font-bold text-stone-900">Total</span>
-              <span className="text-lg font-bold text-amber-600">{formatPrice(totalCents)}</span>
+              <span className="text-lg font-bold text-amber-600">
+                {formatPrice(payableCents)}
+              </span>
             </div>
 
             <button
@@ -239,7 +313,13 @@ export default function CartPage() {
               disabled={loading}
               className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-bold text-lg rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
             >
-              {loading ? "Processing..." : user ? `Pay ${formatPrice(totalCents)}` : "Login to Checkout"}
+              {loading
+                ? "Processing..."
+                : !user
+                  ? "Login to Checkout"
+                  : payableCents === 0
+                    ? "Place order — free"
+                    : `Pay ${formatPrice(payableCents)}`}
             </button>
 
             <button

@@ -4,6 +4,12 @@ import { getMalaysiaDateString } from "./dates";
 import { getIcedSurchargeCents } from "./env";
 import { canTransition, isOrderStatus, type OrderStatus } from "./order-status";
 import { normaliseToppings, serialiseToppings, toppingsPriceCents } from "./toppings";
+import {
+  discountFor,
+  loadSpendableVoucher,
+  markVoucherUsed,
+  releaseVoucherForOrder,
+} from "./vouchers";
 import { sql, transaction, type Queryable } from "./sql";
 
 export interface CartItem {
@@ -25,6 +31,9 @@ export interface OrderRow {
   stripe_session_id: string | null;
   stripe_payment_intent: string | null;
   qr_token: string | null;
+  voucher_id: string | null;
+  /** What the voucher took off, kept on the order so a receipt still adds up. */
+  discount_cents: number;
   created_at: string;
   updated_at: string;
 }
@@ -48,7 +57,8 @@ export type OrderWithItems = OrderRow & { items: OrderItemRow[] };
 /** Explicit column lists keep the API response decoupled from the schema. */
 const ORDER_COLUMNS = `
   id, user_id, order_number, order_date, status, total_cents,
-  stripe_session_id, stripe_payment_intent, qr_token, created_at, updated_at
+  stripe_session_id, stripe_payment_intent, qr_token,
+  voucher_id, discount_cents, created_at, updated_at
 `;
 
 const ORDER_ITEM_COLUMNS = `
@@ -78,6 +88,7 @@ function normaliseOrder(row: OrderRow): OrderRow {
     ...row,
     order_number: num(row.order_number),
     total_cents: num(row.total_cents),
+    discount_cents: num(row.discount_cents),
   };
 }
 
@@ -99,7 +110,11 @@ export async function getNextOrderNumber(): Promise<number> {
   return nextOrderNumber(sql, getMalaysiaDateString());
 }
 
-export async function createOrder(userId: string, items: CartItem[]): Promise<OrderRow> {
+export async function createOrder(
+  userId: string,
+  items: CartItem[],
+  voucherId?: string
+): Promise<OrderRow> {
   await getDb();
   const icedSurcharge = getIcedSurchargeCents();
 
@@ -127,7 +142,7 @@ export async function createOrder(userId: string, items: CartItem[]): Promise<Or
   const byId = new Map(menuItems.map((m) => [m.id, m]));
 
   // Prices always come from the database, never from the client.
-  let totalCents = 0;
+  let subtotalCents = 0;
   const orderItems = items.map((cartItem) => {
     const menuItem = byId.get(cartItem.menuItemId)!;
     // Unknown or duplicated toppings are discarded here, so a client cannot
@@ -137,7 +152,7 @@ export async function createOrder(userId: string, items: CartItem[]): Promise<Or
       num(menuItem.price_cents) +
       (cartItem.temperature === "iced" ? icedSurcharge : 0) +
       toppingsPriceCents(toppings);
-    totalCents += unitPrice * cartItem.quantity;
+    subtotalCents += unitPrice * cartItem.quantity;
     return {
       id: uuidv4(),
       menuItemId: menuItem.id,
@@ -156,14 +171,32 @@ export async function createOrder(userId: string, items: CartItem[]): Promise<Or
   const today = getMalaysiaDateString();
 
   // The order number is allocated inside the transaction so two concurrent
-  // checkouts cannot be handed the same number for the day.
+  // checkouts cannot be handed the same number for the day. The voucher is
+  // claimed in here too, so the same one cannot be spent on two orders.
   await transaction(async (tx) => {
+    let discountCents = 0;
+
+    if (voucherId) {
+      const voucher = await loadSpendableVoucher(tx, userId, voucherId);
+      discountCents = discountFor(
+        voucher,
+        orderItems.map((i) => i.unitPrice),
+        subtotalCents
+      );
+    }
+
+    const totalCents = Math.max(0, subtotalCents - discountCents);
     const orderNumber = await nextOrderNumber(tx, today);
+
     await tx.run(
-      `INSERT INTO orders (id, user_id, order_number, order_date, status, total_cents, qr_token)
-       VALUES (?, ?, ?, ?, 'pending_payment', ?, ?)`,
-      [orderId, userId, orderNumber, today, totalCents, qrToken]
+      `INSERT INTO orders (id, user_id, order_number, order_date, status, total_cents, qr_token, voucher_id, discount_cents)
+       VALUES (?, ?, ?, ?, 'pending_payment', ?, ?, ?, ?)`,
+      [orderId, userId, orderNumber, today, totalCents, qrToken, voucherId ?? null, discountCents]
     );
+
+    if (voucherId) {
+      await markVoucherUsed(tx, voucherId, orderId);
+    }
     for (const item of orderItems) {
       await tx.run(
         `INSERT INTO order_items
@@ -380,6 +413,10 @@ export async function updateOrderStatus(
     }
 
     if (status === "cancelled") {
+      // A cancelled order returns its voucher: the customer never got the
+      // drink, so they should not lose the reward.
+      await releaseVoucherForOrder(tx, orderId);
+
       // Claw back anything already earned on this order.
       const earned = await tx.one<{ total: number }>(
         "SELECT COALESCE(SUM(delta), 0) as total FROM points_ledger WHERE order_id = ?",

@@ -3,9 +3,10 @@
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import RewardsPanel from "@/components/RewardsPanel";
 
 export default function AccountPage() {
-  const { user, logout, loading: authLoading } = useAuth();
+  const { user, logout, loading: authLoading, refreshUser } = useAuth();
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -85,9 +86,11 @@ export default function AccountPage() {
 
           <div className="bg-white rounded-2xl border border-stone-200 p-2 mb-6">
             <p className="text-sm text-stone-500 px-4 py-3 bg-stone-50 rounded-xl text-center">
-              Earn 1 point for every RM 1 spent!
+              Earn 1 point for every RM 1 spent
             </p>
           </div>
+
+          <RewardsPanel onPointsChange={refreshUser} />
         </>
       )}
 

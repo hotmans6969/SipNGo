@@ -34,6 +34,9 @@ export const cartItemSchema = z.object({
 
 export const createOrderSchema = z.object({
   items: z.array(cartItemSchema).min(1, "Cart is empty").max(50),
+  // Ownership, expiry and whether it has already been spent are all checked
+  // server-side when the order is created.
+  voucherId: z.string().uuid("Invalid voucher").optional(),
 });
 
 export const checkoutSchema = z.object({

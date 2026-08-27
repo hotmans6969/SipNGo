@@ -22,6 +22,9 @@ delete process.env.ADMIN_PASSWORD;
 const { default: getDb } = await import("../db");
 const { sql, closeClient } = await import("../sql");
 const { getSalesSummary } = await import("../sales");
+const { grantSignupVoucher, redeemPoints, getUsableVouchers, VoucherError } = await import(
+  "../vouchers"
+);
 const {
   createOrder,
   updateOrderStatus,
@@ -287,6 +290,122 @@ describe("status transitions", () => {
     );
     expect(Number(ledger!.count)).toBe(0);
     expect((await getOrderWithItems(order.id))!.status).toBe("pending_payment");
+  });
+});
+
+describe("vouchers", () => {
+  it("can only be spent once, even across two orders", async () => {
+    const scopedUser = await makeUser();
+    await grantSignupVoucher(sql, scopedUser);
+    const [voucher] = await getUsableVouchers(scopedUser);
+    const itemId = await makeMenuItem(600);
+
+    const first = await createOrder(scopedUser, [{ menuItemId: itemId, quantity: 1 }], voucher.id);
+    expect(first.total_cents).toBe(0);
+    expect(first.discount_cents).toBe(600);
+
+    // The second attempt must be refused rather than discounting again.
+    await expect(
+      createOrder(scopedUser, [{ menuItemId: itemId, quantity: 1 }], voucher.id)
+    ).rejects.toThrow(VoucherError);
+  });
+
+  it("belongs to one customer only", async () => {
+    const owner = await makeUser();
+    const stranger = await makeUser();
+    await grantSignupVoucher(sql, owner);
+    const [voucher] = await getUsableVouchers(owner);
+    const itemId = await makeMenuItem(500);
+
+    await expect(
+      createOrder(stranger, [{ menuItemId: itemId, quantity: 1 }], voucher.id)
+    ).rejects.toThrow(VoucherError);
+  });
+
+  it("frees the cheapest drink, not the dearest", async () => {
+    const scopedUser = await makeUser();
+    await grantSignupVoucher(sql, scopedUser);
+    const [voucher] = await getUsableVouchers(scopedUser);
+    const cheap = await makeMenuItem(400);
+    const dear = await makeMenuItem(900);
+
+    const order = await createOrder(
+      scopedUser,
+      [
+        { menuItemId: cheap, quantity: 1 },
+        { menuItemId: dear, quantity: 1 },
+      ],
+      voucher.id
+    );
+    expect(order.discount_cents).toBe(400);
+    expect(order.total_cents).toBe(900);
+  });
+
+  it("comes back when the order is cancelled", async () => {
+    const scopedUser = await makeUser();
+    await grantSignupVoucher(sql, scopedUser);
+    const [voucher] = await getUsableVouchers(scopedUser);
+    const itemId = await makeMenuItem(500);
+
+    const order = await createOrder(scopedUser, [{ menuItemId: itemId, quantity: 1 }], voucher.id);
+    expect(await getUsableVouchers(scopedUser)).toHaveLength(0);
+
+    // The customer never got the drink, so they keep the reward.
+    await updateOrderStatus(order.id, "cancelled");
+    const back = await getUsableVouchers(scopedUser);
+    expect(back).toHaveLength(1);
+    expect(back[0].id).toBe(voucher.id);
+  });
+
+  it("awards points on what was actually paid, not the pre-discount total", async () => {
+    const scopedUser = await makeUser();
+    await grantSignupVoucher(sql, scopedUser);
+    const [voucher] = await getUsableVouchers(scopedUser);
+    const itemId = await makeMenuItem(1000);
+
+    const order = await createOrder(scopedUser, [{ menuItemId: itemId, quantity: 2 }], voucher.id);
+    // 2000 subtotal, one drink free: 1000 paid, so 10 points not 20.
+    expect(order.total_cents).toBe(1000);
+    await updateOrderStatus(order.id, "paid");
+    expect(await pointsFor(scopedUser)).toBe(10);
+  });
+});
+
+describe("redeeming points", () => {
+  it("refuses when the balance is short", async () => {
+    const scopedUser = await makeUser();
+    await expect(redeemPoints(scopedUser, "off5")).rejects.toThrow(/Not enough points/);
+  });
+
+  it("deducts the cost and issues the voucher", async () => {
+    const scopedUser = await makeUser();
+    await sql.run("UPDATE users SET points = 250 WHERE id = ?", [scopedUser]);
+
+    const voucher = await redeemPoints(scopedUser, "off5");
+    expect(voucher.discount_cents).toBe(500);
+    expect(await pointsFor(scopedUser)).toBe(150);
+  });
+
+  it("cannot be overdrawn", async () => {
+    const scopedUser = await makeUser();
+    await sql.run("UPDATE users SET points = 100 WHERE id = ?", [scopedUser]);
+
+    // Exactly enough for one. The balance check lives in the UPDATE's WHERE
+    // clause, so the second attempt matches no row and is refused rather than
+    // driving the balance negative.
+    //
+    // Run one after the other rather than at once: two simultaneous write
+    // transactions cannot be issued over a single local connection, so true
+    // concurrency here is the database's guarantee to keep, not something
+    // this suite can exercise.
+    await expect(redeemPoints(scopedUser, "off5")).resolves.toBeDefined();
+    await expect(redeemPoints(scopedUser, "off5")).rejects.toThrow(/Not enough points/);
+    expect(await pointsFor(scopedUser)).toBe(0);
+  });
+
+  it("rejects a reward that does not exist", async () => {
+    const scopedUser = await makeUser();
+    await expect(redeemPoints(scopedUser, "free_everything")).rejects.toThrow(VoucherError);
   });
 });
 
