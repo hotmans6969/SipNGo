@@ -37,6 +37,7 @@
   --animate-ready-pulse: scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both,
     ready-pulse 2s ease-in-out 0.25s infinite;
   --animate-attention-pulse: attention-pulse 2s ease-in-out infinite;
+  --animate-blink: blink 1s steps(1, end) infinite;
 
   @keyframes fade-in {
     from {
@@ -119,6 +120,20 @@
     }
     50% {
       box-shadow: 0 0 0 6px rgb(34 197 94 / 0);
+    }
+  }
+
+  /* A hard blink rather than a fade: the point is to catch the eye across a
+     counter, and a gentle pulse reads as decoration. */
+  @keyframes blink {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.35;
+      transform: scale(1.15);
     }
   }
 

@@ -8,6 +8,7 @@ import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import PageTransition from "@/components/PageTransition";
 import PushNotificationPrompt from "@/components/PushNotificationPrompt";
 import DialogProvider from "@/components/DialogProvider";
+import { StaffAlertProvider } from "@/context/StaffAlertContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -59,6 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full flex flex-col bg-stone-50 text-stone-900">
         <ServiceWorkerRegistrar />
         <AuthProvider>
+          <StaffAlertProvider>
           <CartProvider>
             <DialogProvider>
             <Navbar />
@@ -71,6 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </footer>
             </DialogProvider>
           </CartProvider>
+          </StaffAlertProvider>
         </AuthProvider>
       </body>
     </html>

@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { usePathname } from "next/navigation";
 import { useBumpOnChange } from "@/hooks/useBumpOnChange";
+import { useStaffAlerts } from "@/context/StaffAlertContext";
 
 export default function Navbar() {
   const { user } = useAuth();
@@ -12,6 +13,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const cartBumping = useBumpOnChange(totalItems);
   const isStaff = user?.role === "admin" || user?.role === "staff";
+  const { awaitingCount } = useStaffAlerts();
 
   // isActive matches by prefix, so /admin/sales would light the Orders tab as
   // well as its own. Orders covers the dashboard and everything under it
@@ -69,6 +71,14 @@ export default function Navbar() {
                 <svg className={iconClasses(onOrders)} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                 </svg>
+                {awaitingCount > 0 && (
+                  <span
+                    aria-label={`${awaitingCount} orders waiting`}
+                    className="absolute -top-2 -right-3 bg-red-600 text-white text-[10px] font-bold h-5 min-w-5 px-1.5 rounded-full flex items-center justify-center shadow-md animate-blink"
+                  >
+                    {awaitingCount}
+                  </span>
+                )}
               </div>
               <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Orders</span>
             </Link>

@@ -9,7 +9,7 @@ import QRScanner from "@/components/QRScanner";
 import { formatMalaysiaTime } from "@/lib/dates";
 import { formatPrice } from "@/lib/format";
 import { usePolling } from "@/hooks/usePolling";
-import { useOrderAlarm } from "@/hooks/useOrderAlarm";
+import { useStaffAlerts } from "@/context/StaffAlertContext";
 import { canTransition, type OrderStatus } from "@/lib/order-status";
 import ItemCustomisations from "@/components/ItemCustomisations";
 import { useDialog } from "@/components/DialogProvider";
@@ -43,7 +43,6 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [awaitingCount, setAwaitingCount] = useState(0);
   const [actionError, setActionError] = useState("");
   const { confirm, notify } = useDialog();
   
@@ -65,18 +64,6 @@ export default function AdminDashboard() {
       
       setOrders(newOrders);
 
-      // How many orders are waiting to be started, independent of the filter
-      // being viewed. The endpoint reports the unpaginated total, so this
-      // stays correct however many there are.
-      try {
-        const waitingRes = await fetch("/api/admin/orders?status=paid&limit=1");
-        if (waitingRes.ok) {
-          const waiting = await waitingRes.json();
-          setAwaitingCount(waiting.total ?? 0);
-        }
-      } catch {
-        // Leave the previous count rather than falsely silencing the alarm.
-      }
 
     } catch {
       // silently fail
@@ -100,16 +87,9 @@ export default function AdminDashboard() {
   // hidden and resumes with an immediate fetch when it comes back.
   usePolling(fetchOrders, 5000, !authLoading && !!user);
 
-  // "paid" means the customer has paid and nobody has started making it. The
-  // alarm is driven by that being true right now rather than by an order
-  // arriving, so it keeps sounding for one that was already waiting when the
-  // board was opened, and stops the instant the last one is accepted.
-  //
-  // This count is fetched separately rather than derived from `orders`,
-  // because `orders` reflects the current status filter — deriving it there
-  // silenced the alarm the moment staff filtered to any other status, while
-  // orders sat unmade.
-  const { blocked: soundBlocked, enableSound } = useOrderAlarm(awaitingCount > 0);
+  // The count and the alarm belong to StaffAlertProvider, which runs on every
+  // page. Owning them here as well would poll twice and chime twice.
+  const { awaitingCount, soundBlocked, enableSound, refresh: refreshAlerts } = useStaffAlerts();
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     setUpdatingId(orderId);
@@ -123,6 +103,7 @@ export default function AdminDashboard() {
 
       if (res.ok) {
         await fetchOrders();
+        refreshAlerts();
         return;
       }
 
