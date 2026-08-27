@@ -7,6 +7,7 @@ import Navbar from "@/components/Navbar";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import PageTransition from "@/components/PageTransition";
 import PushNotificationPrompt from "@/components/PushNotificationPrompt";
+import CartBar from "@/components/CartBar";
 import DialogProvider from "@/components/DialogProvider";
 import { StaffAlertProvider } from "@/context/StaffAlertContext";
 
@@ -71,6 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <footer className="bg-stone-900 text-stone-400 text-center py-6 text-sm mb-16">
               SipNGo &copy; {new Date().getFullYear()}. All rights reserved.
             </footer>
+            <CartBar />
             </DialogProvider>
           </CartProvider>
           </StaffAlertProvider>

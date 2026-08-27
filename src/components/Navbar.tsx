@@ -2,16 +2,12 @@
 
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { useCart } from "@/context/CartContext";
 import { usePathname } from "next/navigation";
-import { useBumpOnChange } from "@/hooks/useBumpOnChange";
 import { useStaffAlerts } from "@/context/StaffAlertContext";
 
 export default function Navbar() {
   const { user } = useAuth();
-  const { totalItems } = useCart();
   const pathname = usePathname();
-  const cartBumping = useBumpOnChange(totalItems);
   const isStaff = user?.role === "admin" || user?.role === "staff";
   const { awaitingCount } = useStaffAlerts();
 
@@ -65,6 +61,9 @@ export default function Navbar() {
             </Link>
           )}
 
+          {/* The customer's cart is not a tab any more — it rises as a bar the
+              moment there is something in it. This slot is membership: points
+              and the vouchers they buy. */}
           {isStaff ? (
             <Link href="/admin" className={`${tabClasses(onOrders)} relative`}>
               <div className="relative">
@@ -83,25 +82,11 @@ export default function Navbar() {
               <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Orders</span>
             </Link>
           ) : (
-            <Link href="/cart" className={`${tabClasses(!!isActive("/cart"))} relative`}>
-              <div className="relative">
-                <svg className={iconClasses(!!isActive("/cart"))} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
-                {totalItems > 0 && (
-                  <span
-                    // Exactly one animation: both utilities set the same
-                    // `animation` property, so applying them together would
-                    // silently drop whichever lost the cascade.
-                    className={`absolute -top-1.5 -right-2.5 bg-amber-500 text-white text-[10px] font-bold h-4 min-w-4 px-1 rounded-full flex items-center justify-center shadow-sm ${
-                      cartBumping ? "animate-pop" : "animate-scale-in"
-                    }`}
-                  >
-                    {totalItems}
-                  </span>
-                )}
-              </div>
-              <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Orders</span>
+            <Link href="/membership" className={tabClasses(!!isActive("/membership"))}>
+              <svg className={iconClasses(!!isActive("/membership"))} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+              <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Membership</span>
             </Link>
           )}
 

@@ -166,9 +166,7 @@ export default function CartPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-stone-900 mb-6">Orders</h1>
-
-      <h2 className="text-lg font-bold text-stone-900 mb-3">Your cart</h2>
+      <h1 className="text-3xl font-bold text-stone-900 mb-6">Your Cart</h1>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
