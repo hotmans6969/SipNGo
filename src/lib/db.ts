@@ -257,6 +257,38 @@ const MIGRATIONS: Array<{ version: number; name: string; up: () => Promise<void>
       await addColumnIfMissing("orders", "discount_cents", "INTEGER NOT NULL DEFAULT 0");
     },
   },
+  {
+    version: 11,
+    name: "repair_dead_menu_images",
+    up: async () => {
+      // Two of the seeded Unsplash photos have since been taken down and now
+      // answer 404, which left those cards with a broken image on the menu.
+      // The seed is only consulted when `menu_items` is empty, so a shop that
+      // has been running since before the fix would never pick up the new
+      // URLs on its own.
+      //
+      // Matched on the exact dead URL rather than the item name: a shop that
+      // has already put its own photograph on either drink keeps it.
+      for (const [dead, replacement] of DEAD_MENU_IMAGES) {
+        await sql.run("UPDATE menu_items SET image_url = ? WHERE image_url = ?", [
+          replacement,
+          dead,
+        ]);
+      }
+    },
+  },
+];
+
+/** Withdrawn Unsplash photos, paired with the ones that replaced them. */
+const DEAD_MENU_IMAGES: ReadonlyArray<readonly [string, string]> = [
+  [
+    "https://images.unsplash.com/photo-1461023058943-07cb126df8eb?w=500&q=80",
+    "https://images.unsplash.com/photo-1531835207745-506a1bc035d8?w=500&q=80",
+  ],
+  [
+    "https://images.unsplash.com/photo-1625937751876-4515cd8e78be?w=500&q=80",
+    "https://images.unsplash.com/photo-1547825407-2d060104b7f8?w=500&q=80",
+  ],
 ];
 
 async function migrate(): Promise<void> {

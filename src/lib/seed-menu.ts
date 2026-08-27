@@ -36,7 +36,7 @@ const STARTER_MENU: Array<{
     description: "Slow-steeped cold coffee, smooth and bold",
     price: 500,
     category: "coffee",
-    imageUrl: "https://images.unsplash.com/photo-1461023058943-07cb126df8eb?w=500&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1531835207745-506a1bc035d8?w=500&q=80",
   },
   {
     name: "Espresso",
@@ -106,7 +106,7 @@ const STARTER_MENU: Array<{
     description: "Classic brewed green tea",
     price: 350,
     category: "tea",
-    imageUrl: "https://images.unsplash.com/photo-1625937751876-4515cd8e78be?w=500&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1547825407-2d060104b7f8?w=500&q=80",
   },
   {
     name: "Iced Matcha Latte",

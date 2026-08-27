@@ -14,6 +14,10 @@ interface MenuItem {
   category: string;
   image_url: string;
   available: number;
+  /** Units sold in the ranking window; drives the order the API returns. */
+  sold: number;
+  /** One of the three best sellers. */
+  popular: boolean;
 }
 
 export default function MenuPage() {
@@ -32,7 +36,13 @@ export default function MenuPage() {
       .catch(() => setLoading(false));
   }, []);
 
-  const categories = ["all", ...Array.from(new Set(items.map((i) => i.category)))];
+  // Categories are listed in the fixed order the shop sells in, not the order
+  // the best-seller ranking happens to return them in — a filter bar that
+  // reshuffles itself as sales come in is disorienting.
+  const categories = ["all", "coffee", "tea", "smoothies", "juices"].filter(
+    (cat) => cat === "all" || items.some((i) => i.category === cat)
+  );
+  // `items` arrives best-sellers-first from the API; filtering preserves that.
   const filtered = activeCategory === "all" ? items : items.filter((i) => i.category === activeCategory);
 
   if (loading) {
@@ -98,7 +108,11 @@ export default function MenuPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-stone-900">Our Menu</h1>
-          <p className="text-stone-500 mt-1">Choose from our selection of drinks and food</p>
+          <p className="text-stone-500 mt-1">
+            {items.some((i) => i.popular)
+              ? "Our best sellers first — chosen by what people are ordering this month"
+              : "Choose from our selection of drinks and food"}
+          </p>
         </div>
       </div>
 
@@ -138,6 +152,7 @@ export default function MenuPage() {
               priceCents={item.price_cents}
               category={item.category}
               imageUrl={item.image_url}
+              popular={item.popular}
             />
           ))}
         </div>

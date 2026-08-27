@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/lib/format";
+import MenuItemImage from "./MenuItemImage";
 import {
   TOPPINGS,
   TOPPING_PRICE_CENTS,
@@ -97,12 +98,9 @@ export default function ItemDetailsModal({
             : "animate-scale-in"
         }`}
       >
-        {imageUrl && (
-          <div className="w-full h-48 sm:h-56 overflow-hidden bg-stone-100">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
-          </div>
-        )}
+        <div className="w-full h-48 sm:h-56 overflow-hidden bg-stone-100">
+          <MenuItemImage src={imageUrl} alt={name} category={category} />
+        </div>
         
         <div className="p-5 flex-1 overflow-y-auto">
           <div className="flex justify-between items-start gap-4 mb-2">

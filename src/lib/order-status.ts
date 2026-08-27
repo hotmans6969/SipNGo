@@ -10,6 +10,16 @@ export const ORDER_STATUSES = [
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 /**
+ * Statuses that mean a drink was actually sold.
+ *
+ * An order sitting at `pending_payment` was never paid for, and a `cancelled`
+ * one was refunded or written off. Sales reporting and the menu's best-seller
+ * ordering both read from here, so a figure on the counter's dashboard and the
+ * ranking a customer sees can never be counting different things.
+ */
+export const SOLD_STATUSES = ["paid", "preparing", "ready", "picked_up"] as const;
+
+/**
  * Allowed forward transitions. Orders move through the flow in one direction;
  * without this an admin could send a collected order back to `pending_payment`
  * and re-trigger payment and points handling.

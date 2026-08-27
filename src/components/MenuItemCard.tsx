@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ItemDetailsModal from "./ItemDetailsModal";
+import MenuItemImage from "./MenuItemImage";
 import { formatPrice } from "@/lib/format";
 
 interface MenuItemCardProps {
@@ -11,9 +12,11 @@ interface MenuItemCardProps {
   priceCents: number;
   category: string;
   imageUrl?: string;
+  /** One of the best sellers, called out at the top of the menu. */
+  popular?: boolean;
 }
 
-export default function MenuItemCard({ id, name, description, priceCents, category, imageUrl }: MenuItemCardProps) {
+export default function MenuItemCard({ id, name, description, priceCents, category, imageUrl, popular }: MenuItemCardProps) {
   const [showModal, setShowModal] = useState(false);
 
 
@@ -32,16 +35,19 @@ export default function MenuItemCard({ id, name, description, priceCents, catego
         className="bg-white rounded-xl border border-stone-200 flex flex-col justify-between hover:shadow-lg hover:border-amber-200 transition-all duration-200 transform hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] cursor-pointer overflow-hidden group"
         onClick={() => setShowModal(true)}
       >
-        {imageUrl && (
-          <div className="w-full h-48 overflow-hidden bg-stone-100 flex items-center justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={imageUrl}
-              alt={name}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-            />
-          </div>
-        )}
+        <div className="relative w-full h-48 overflow-hidden bg-stone-100 flex items-center justify-center">
+          <MenuItemImage
+            src={imageUrl}
+            alt={name}
+            category={category}
+            className="transition-transform duration-500 group-hover:scale-110"
+          />
+          {popular && (
+            <span className="absolute top-3 left-3 bg-amber-500 text-white text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-md flex items-center gap-1">
+              <span aria-hidden="true">🔥</span> Popular
+            </span>
+          )}
+        </div>
         <div className="p-5 flex flex-col justify-between flex-1">
           <div>
             <div className="flex items-start justify-between gap-2 mb-2">

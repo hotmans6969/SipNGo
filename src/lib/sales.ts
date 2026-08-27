@@ -2,16 +2,17 @@ import getDb from "./db";
 import { sql } from "./sql";
 import { getMalaysiaDateString } from "./dates";
 import { parseToppings, formatToppings } from "./toppings";
+import { SOLD_STATUSES } from "./order-status";
 
 /**
  * Sales reporting for the counter.
  *
- * Revenue counts orders that were actually paid and not voided. An order
- * sitting at `pending_payment` was never paid for, and a `cancelled` one was
- * refunded or written off — counting either would overstate takings, which is
- * the one thing a sales figure must not do.
+ * Revenue counts orders that were actually paid and not voided — counting a
+ * pending or cancelled one would overstate takings, which is the one thing a
+ * sales figure must not do. That list is shared with the menu's best-seller
+ * ordering, so the two can never disagree about what sold.
  */
-const EARNING_STATUSES = ["paid", "preparing", "ready", "picked_up"] as const;
+const EARNING_STATUSES = SOLD_STATUSES;
 
 export type SalesPeriod = "today" | "week" | "month";
 
