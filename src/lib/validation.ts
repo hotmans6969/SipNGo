@@ -2,6 +2,7 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { ORDER_STATUSES } from "./order-status";
 import { TOPPING_IDS, MAX_TOPPINGS_PER_ITEM } from "./toppings";
+import { PAYMENT_METHODS } from "./payment-methods";
 
 export const registerSchema = z.object({
   email: z.string().trim().toLowerCase().email("Invalid email address").max(254),
@@ -41,6 +42,9 @@ export const createOrderSchema = z.object({
 
 export const checkoutSchema = z.object({
   orderId: z.string().uuid("Invalid order"),
+  // Defaulted so an older client, or the retry button on an order that
+  // predates the portal, still reaches the card flow it used to get.
+  method: z.enum(PAYMENT_METHODS).default("card"),
 });
 
 /** Prices are whole sen, must be positive, and are capped to catch typos. */

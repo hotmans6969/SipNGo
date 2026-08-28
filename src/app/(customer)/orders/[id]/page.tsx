@@ -29,6 +29,7 @@ interface Order {
   status: string;
   total_cents: number;
   qr_token: string | null;
+  payment_method: "counter" | "ewallet" | "card" | null;
   created_at: string;
   items: OrderItem[];
 }
@@ -169,6 +170,16 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       )}
 
+      {paymentStatus === "counter" && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 text-blue-900 rounded-xl">
+          <p className="font-semibold">Order placed — pay at the counter</p>
+          <p className="text-sm mt-1">
+            The counter can see your order. Pay for it when you collect, and your points are
+            added then.
+          </p>
+        </div>
+      )}
+
       {paymentStatus === "cancelled" && (
         <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl">
           <p className="font-semibold">Payment was cancelled</p>
@@ -255,30 +266,30 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       {/* Pending Payment CTA */}
       {order.status === "pending_payment" && (
         <div className="bg-white rounded-2xl border border-stone-200 p-6 mb-6 text-center">
-          <h2 className="text-lg font-semibold text-stone-900 mb-2">Payment Required</h2>
-          <p className="text-sm text-stone-500 mb-4">Complete your payment to confirm this order.</p>
-          <button
-            onClick={async () => {
-              try {
-                const res = await fetch("/api/checkout", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ orderId: order.id }),
-                });
-                const data = await res.json();
-                if (data.url) {
-                  window.location.href = data.url;
-                } else if (data.mode === "demo") {
-                  window.location.reload();
-                }
-              } catch {
-                // silently fail
-              }
-            }}
-            className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-8 py-3 rounded-xl transition-all active:scale-95"
+          {order.payment_method === "counter" ? (
+            <>
+              <h2 className="text-lg font-semibold text-stone-900 mb-2">Pay at the counter</h2>
+              <p className="text-sm text-stone-500 mb-4">
+                Show this order at the counter and pay {formatPrice(order.total_cents)}. Changed
+                your mind? You can pay here instead.
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-lg font-semibold text-stone-900 mb-2">Payment Required</h2>
+              <p className="text-sm text-stone-500 mb-4">
+                Complete your payment to confirm this order.
+              </p>
+            </>
+          )}
+          <Link
+            href={`/checkout/${order.id}`}
+            className="inline-block bg-amber-500 hover:bg-amber-600 text-white font-semibold px-8 py-3 rounded-xl transition-all active:scale-95"
           >
-            Pay {formatPrice(order.total_cents)}
-          </button>
+            {order.payment_method === "counter"
+              ? "Pay now instead"
+              : `Pay ${formatPrice(order.total_cents)}`}
+          </Link>
         </div>
       )}
 

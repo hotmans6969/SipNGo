@@ -277,6 +277,17 @@ const MIGRATIONS: Array<{ version: number; name: string; up: () => Promise<void>
       }
     },
   },
+  {
+    version: 12,
+    name: "order_payment_method",
+    up: async () => {
+      // How the customer chose to pay. The counter needs this to tell an
+      // order somebody is walking over to pay for in cash from one where a
+      // card checkout was simply abandoned — both sit at pending_payment and
+      // are otherwise indistinguishable. Orders placed before this reads null.
+      await addColumnIfMissing("orders", "payment_method", "TEXT");
+    },
+  },
 ];
 
 /** Withdrawn Unsplash photos, paired with the ones that replaced them. */

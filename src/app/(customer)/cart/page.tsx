@@ -85,20 +85,6 @@ export default function CartPage() {
 
       const { order } = await orderRes.json();
 
-      // Step 2: Initiate payment
-      const checkoutRes = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: order.id }),
-      });
-
-      if (!checkoutRes.ok) {
-        const data = await checkoutRes.json();
-        throw new Error(data.error || "Failed to initiate payment");
-      }
-
-      const checkoutData = await checkoutRes.json();
-
       // Clear cart after successful order creation
       clearCart();
 
@@ -106,13 +92,10 @@ export default function CartPage() {
       // than whenever the next background poll happens to come round.
       refreshOrders();
 
-      if (checkoutData.url) {
-        // Redirect to Stripe Checkout
-        window.location.href = checkoutData.url;
-      } else {
-        // Demo mode - redirect to order page
-        router.push(`/orders/${order.id}?payment=success`);
-      }
+      // Step 2: how to pay is chosen on the payment page. The order already
+      // exists by this point, so abandoning that screen loses nothing — it
+      // can be settled later from Orders, the same way a counter payment is.
+      router.push(`/checkout/${order.id}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -273,7 +256,7 @@ export default function CartPage() {
                   ? "Login to Checkout"
                   : payableCents === 0
                     ? "Place order — free"
-                    : `Pay ${formatPrice(payableCents)}`}
+                    : `Checkout · ${formatPrice(payableCents)}`}
             </button>
 
             <button

@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { getMalaysiaDateString } from "./dates";
 import { getIcedSurchargeCents } from "./env";
 import { canTransition, isOrderStatus, type OrderStatus } from "./order-status";
+import type { PaymentMethod } from "./payment-methods";
 import { normaliseToppings, serialiseToppings, toppingsPriceCents } from "./toppings";
 import {
   discountFor,
@@ -31,6 +32,8 @@ export interface OrderRow {
   stripe_session_id: string | null;
   stripe_payment_intent: string | null;
   qr_token: string | null;
+  /** How the customer chose to pay. Null on orders placed before this existed. */
+  payment_method: PaymentMethod | null;
   voucher_id: string | null;
   /** What the voucher took off, kept on the order so a receipt still adds up. */
   discount_cents: number;
@@ -57,7 +60,7 @@ export type OrderWithItems = OrderRow & { items: OrderItemRow[] };
 /** Explicit column lists keep the API response decoupled from the schema. */
 const ORDER_COLUMNS = `
   id, user_id, order_number, order_date, status, total_cents,
-  stripe_session_id, stripe_payment_intent, qr_token,
+  stripe_session_id, stripe_payment_intent, qr_token, payment_method,
   voucher_id, discount_cents, created_at, updated_at
 `;
 
@@ -325,7 +328,7 @@ export async function getAllOrders({
     sql.all<OrderRow & { customer_name: string; customer_email: string }>(
       `SELECT o.id, o.user_id, o.order_number, o.order_date, o.status, o.total_cents,
               o.stripe_session_id, o.stripe_payment_intent, o.qr_token,
-              o.created_at, o.updated_at,
+              o.payment_method, o.created_at, o.updated_at,
               COALESCE(u.name, 'Unknown') AS customer_name,
               COALESCE(u.email, '')       AS customer_email
          FROM orders o
@@ -435,6 +438,18 @@ export async function updateOrderStatus(
   });
 
   return (await getOrder(orderId))!;
+}
+
+/** Records how the customer chose to pay, before they are sent to settle it. */
+export async function setOrderPaymentMethod(
+  orderId: string,
+  method: PaymentMethod
+): Promise<void> {
+  await getDb();
+  await sql.run(
+    "UPDATE orders SET payment_method = ?, updated_at = datetime('now') WHERE id = ?",
+    [method, orderId]
+  );
 }
 
 export async function updateOrderStripeSession(

@@ -2,15 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import {
   getOrderWithItems,
+  setOrderPaymentMethod,
   updateOrderStripeSession,
   updateOrderStatus,
   OrderError,
 } from "@/lib/orders";
+import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { isPaymentSimulated } from "@/lib/env";
 import { CURRENCY } from "@/lib/format";
 import { parseBody, checkoutSchema } from "@/lib/validation";
 import { notifyStaff } from "@/lib/push";
+import { stripeMethodTypesFor } from "@/lib/payment-methods";
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +36,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "This order has already been paid" }, { status: 409 });
     }
 
+    const orderNumber = String(order.order_number).padStart(3, "0");
+
+    // The choice is recorded before anything is acted on, so an abandoned
+    // card checkout still leaves a record of what was attempted.
+    await setOrderPaymentMethod(order.id, data.method);
+
+    // Paying at the counter deliberately settles nothing. The order is placed
+    // and the kitchen can see it coming, but it stays at pending_payment until
+    // somebody takes the money and marks it paid — which is also what awards
+    // the points, so nothing is earned on a drink that was never paid for.
+    if (data.method === "counter") {
+      await notifyStaff({
+        title: "Counter payment 🧾",
+        body: `Order #${orderNumber} is being paid for at the counter.`,
+        url: "/admin",
+        tag: `counter-order-${order.id}`,
+      }).catch(() => {});
+
+      return NextResponse.json({
+        mode: "counter",
+        orderId: order.id,
+        message: "Order placed. Pay at the counter when you collect it.",
+      });
+    }
+
     // Simulated payment is only reachable outside production; isPaymentSimulated
     // throws if a production deploy is missing its Stripe key, rather than
     // quietly handing out free orders.
@@ -41,7 +69,7 @@ export async function POST(request: NextRequest) {
       // Never let a notification failure break a paid order.
       await notifyStaff({
         title: "New order 🧾",
-        body: `Order #${String(order.order_number).padStart(3, "0")} has been paid and needs making.`,
+        body: `Order #${orderNumber} has been paid and needs making.`,
         url: "/admin",
         tag: `new-order-${order.id}`,
       }).catch(() => {});
@@ -62,7 +90,11 @@ export async function POST(request: NextRequest) {
     );
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
+      // The wallet list is configurable, so it is a plain string array here
+      // and Stripe validates it for real when the session is created.
+      payment_method_types: stripeMethodTypesFor(
+        data.method
+      ) as Stripe.Checkout.SessionCreateParams.PaymentMethodType[],
       line_items: order.items.map((item) => ({
         price_data: {
           currency: CURRENCY,
@@ -76,7 +108,7 @@ export async function POST(request: NextRequest) {
       cancel_url: `${appUrl}/orders/${order.id}?payment=cancelled`,
       // Used to reconcile the webhook back to this order.
       client_reference_id: order.id,
-      metadata: { order_id: order.id, user_id: user.id },
+      metadata: { order_id: order.id, user_id: user.id, payment_method: data.method },
     });
 
     await updateOrderStripeSession(order.id, session.id);
@@ -86,6 +118,25 @@ export async function POST(request: NextRequest) {
     if (error instanceof OrderError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
+
+    // Stripe rejects a session asking for a method the account has not turned
+    // on. That is a configuration problem, not a fault the customer can do
+    // anything about, so it is worth saying so rather than "try again".
+    if (
+      error instanceof Error &&
+      /payment_method_types|invalid.*payment method|not activated/i.test(error.message)
+    ) {
+      console.error("Checkout payment method error:", error);
+      return NextResponse.json(
+        {
+          error:
+            "That payment method is not available right now. Please choose another, " +
+            "or pay at the counter.",
+        },
+        { status: 400 }
+      );
+    }
+
     console.error("Checkout error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

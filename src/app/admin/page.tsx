@@ -33,6 +33,7 @@ interface AdminOrder {
   total_cents: number;
   customer_name: string;
   customer_email: string;
+  payment_method: "counter" | "ewallet" | "card" | null;
   created_at: string;
   items: OrderItem[];
 }
@@ -162,6 +163,7 @@ export default function AdminDashboard() {
 
 
   const statusActions: Record<string, { label: string; next: string; color: string }[]> = {
+    pending_payment: [{ label: "Take Payment", next: "paid", color: "bg-blue-600 hover:bg-blue-700 border border-blue-700 shadow-sm" }],
     paid: [{ label: "Start Preparing", next: "preparing", color: "bg-orange-500 hover:bg-orange-600 border border-orange-600 shadow-sm" }],
     preparing: [{ label: "Mark Ready", next: "ready", color: "bg-green-500 hover:bg-green-600 border border-green-600 shadow-sm" }],
   };
@@ -303,6 +305,8 @@ export default function AdminDashboard() {
               className={`bg-white rounded-xl border p-5 transition-all duration-300 ${
                 order.status === "paid" 
                   ? "border-amber-400 shadow-md shadow-amber-100 bg-amber-50/10 animate-attention-pulse"
+                  : order.status === "pending_payment" && order.payment_method === "counter"
+                  ? "border-blue-300 shadow-md shadow-blue-100"
                   : order.status === "ready"
                   ? "border-green-300 shadow-md shadow-green-100"
                   : order.status === "preparing"
@@ -312,11 +316,16 @@ export default function AdminDashboard() {
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-1">
+                  <div className="flex items-center gap-3 mb-1 flex-wrap">
                     <span className="text-2xl font-bold text-stone-900">
                       #{String(order.order_number).padStart(3, "0")}
                     </span>
                     <StatusBadge status={order.status} />
+                    {order.status === "pending_payment" && order.payment_method === "counter" && (
+                      <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border bg-blue-100 text-blue-800 border-blue-300">
+                        🧾 Paying at counter
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-stone-500">
                     {order.customer_name} &middot; {formatMalaysiaTime(order.created_at)}
