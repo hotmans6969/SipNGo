@@ -8,7 +8,7 @@ import {
   OrderError,
 } from "@/lib/orders";
 import Stripe from "stripe";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { isPaymentSimulated } from "@/lib/env";
 import { CURRENCY } from "@/lib/format";
 import { parseBody, checkoutSchema } from "@/lib/validation";
@@ -61,18 +61,19 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // A hosted payment link, when one is configured, stands in for building a
-    // Checkout Session — it needs no secret key, which is what makes it usable
-    // on a deployment that has not been given one yet.
+    // A hosted payment link stands in for building a Checkout Session on a
+    // deployment that has no secret key, because a link needs none.
     //
-    // It charges the fixed amount set on the link, NOT this order's total. The
-    // order is only marked paid when Stripe's webhook arrives quoting the
-    // client_reference_id, which needs STRIPE_SECRET_KEY and
-    // STRIPE_WEBHOOK_SECRET to be set; without them staff settle it by hand
-    // with Take Payment. Test-mode scaffolding, not a way to take money.
-    const hostedLink = paymentLinkFor(order.id);
-    if (hostedLink) {
-      return NextResponse.json({ url: hostedLink });
+    // A configured key always wins, matching how simulated payments already
+    // behave. It has to: a link charges the fixed amount set on it in the
+    // dashboard, whereas a session is built from this order's own lines and
+    // charges what the customer actually owes. Once a key exists there is no
+    // reason to send anyone to a link that quotes the wrong number.
+    if (!isStripeConfigured()) {
+      const hostedLink = paymentLinkFor(order.id);
+      if (hostedLink) {
+        return NextResponse.json({ url: hostedLink });
+      }
     }
 
     // Simulated payment is only reachable outside production; isPaymentSimulated
@@ -103,6 +104,24 @@ export async function POST(request: NextRequest) {
       ""
     );
 
+    // A voucher comes off the order total but not off the individual lines,
+    // so a session built from the lines alone would quietly charge the full
+    // price of a discounted order. Stripe has no negative line item; a
+    // single-use coupon is the way to take it off while the customer still
+    // sees what they ordered itemised.
+    const discounts: Stripe.Checkout.SessionCreateParams.Discount[] = [];
+    if (order.discount_cents > 0) {
+      const coupon = await stripe.coupons.create({
+        amount_off: order.discount_cents,
+        currency: CURRENCY,
+        duration: "once",
+        name: "Voucher",
+        // Tied to this one order, so a leaked id cannot be spent again.
+        max_redemptions: 1,
+      });
+      discounts.push({ coupon: coupon.id });
+    }
+
     const session = await stripe.checkout.sessions.create({
       // The wallet list is configurable, so it is a plain string array here
       // and Stripe validates it for real when the session is created.
@@ -118,6 +137,7 @@ export async function POST(request: NextRequest) {
         quantity: item.quantity,
       })),
       mode: "payment",
+      ...(discounts.length > 0 ? { discounts } : {}),
       success_url: `${appUrl}/orders/${order.id}?payment=success`,
       cancel_url: `${appUrl}/orders/${order.id}?payment=cancelled`,
       // Used to reconcile the webhook back to this order.
