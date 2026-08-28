@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { usePathname } from "next/navigation";
 import { useStaffAlerts } from "@/context/StaffAlertContext";
+import { useActiveOrders } from "@/context/ActiveOrderContext";
 
 export default function Navbar() {
   const { user } = useAuth();
   const pathname = usePathname();
   const isStaff = user?.role === "admin" || user?.role === "staff";
   const { awaitingCount } = useStaffAlerts();
+  const { activeCount } = useActiveOrders();
 
   // isActive matches by prefix, so /admin/sales would light the Orders tab as
   // well as its own. Orders covers the dashboard and everything under it
@@ -61,9 +63,31 @@ export default function Navbar() {
             </Link>
           )}
 
-          {/* The customer's cart is not a tab any more — it rises as a bar the
-              moment there is something in it. This slot is membership: points
-              and the vouchers they buy. */}
+          {/* An order in progress has to be findable without knowing to look
+              under Account. The badge is the point: it says out loud that
+              something of yours is being made, from wherever you are. */}
+          {!isStaff && (
+            <Link href="/orders" className={`${tabClasses(!!isActive("/orders"))} relative`}>
+              <div className="relative">
+                <svg className={iconClasses(!!isActive("/orders"))} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+                {activeCount > 0 && (
+                  <span
+                    aria-label={`${activeCount} ${activeCount === 1 ? "order" : "orders"} in progress`}
+                    className="absolute -top-1.5 -right-2.5 bg-amber-500 text-white text-[10px] font-bold h-4 min-w-4 px-1 rounded-full flex items-center justify-center shadow-sm animate-scale-in"
+                  >
+                    {activeCount}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] font-medium font-sans uppercase tracking-wider">Orders</span>
+            </Link>
+          )}
+
+          {/* The customer's cart is not a tab — it rises as a bar the moment
+              there is something in it. This slot is membership: points and
+              the vouchers they buy. */}
           {isStaff ? (
             <Link href="/admin" className={`${tabClasses(onOrders)} relative`}>
               <div className="relative">

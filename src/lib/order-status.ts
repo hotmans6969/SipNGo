@@ -20,6 +20,19 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export const SOLD_STATUSES = ["paid", "preparing", "ready", "picked_up"] as const;
 
 /**
+ * Statuses that mean an order is still on its way to the customer.
+ *
+ * Collected and cancelled orders belong in history; these are the ones worth
+ * watching, and the ones the Orders tab counts on its badge. The customer
+ * pages used to each carry their own copy of this list.
+ */
+export const ACTIVE_STATUSES = ["pending_payment", "paid", "preparing", "ready"] as const;
+
+export function isActiveOrder(status: string): boolean {
+  return (ACTIVE_STATUSES as readonly string[]).includes(status);
+}
+
+/**
  * Allowed forward transitions. Orders move through the flow in one direction;
  * without this an admin could send a collected order back to `pending_payment`
  * and re-trigger payment and points handling.

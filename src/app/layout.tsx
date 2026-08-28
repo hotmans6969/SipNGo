@@ -10,6 +10,7 @@ import PushNotificationPrompt from "@/components/PushNotificationPrompt";
 import CartBar from "@/components/CartBar";
 import DialogProvider from "@/components/DialogProvider";
 import { StaffAlertProvider } from "@/context/StaffAlertContext";
+import { ActiveOrderProvider } from "@/context/ActiveOrderContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -63,6 +64,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <StaffAlertProvider>
           <CartProvider>
+            <ActiveOrderProvider>
             <DialogProvider>
             <Navbar />
             <main className="flex-1 pb-20">
@@ -74,6 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </footer>
             <CartBar />
             </DialogProvider>
+            </ActiveOrderProvider>
           </CartProvider>
           </StaffAlertProvider>
         </AuthProvider>
