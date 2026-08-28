@@ -11,6 +11,7 @@ import {
   PAYMENT_METHOD_INFO,
   type PaymentMethod,
 } from "@/lib/payment-methods";
+import { PAYING_ORDER_KEY } from "@/lib/paying-order";
 
 interface OrderItem {
   id: string;
@@ -93,6 +94,16 @@ export default function CheckoutPage({ params }: { params: Promise<{ id: string 
       // A card or wallet payment leaves the app for Stripe. Everything else
       // lands back on the order, where the status is already correct.
       if (data.url) {
+        // A hosted payment link cannot carry the order back: its return URL is
+        // fixed in the Stripe dashboard, with nowhere to put an id. Leaving a
+        // note here is what lets /pay/return find the way back to this order's
+        // QR code. A Checkout Session does not need it — its success_url
+        // already names the order — but writing it either way costs nothing.
+        try {
+          localStorage.setItem(PAYING_ORDER_KEY, id);
+        } catch {
+          // Private browsing can refuse. The return page falls back to Orders.
+        }
         window.location.href = data.url;
         return;
       }

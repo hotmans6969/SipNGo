@@ -158,6 +158,36 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     );
   }
 
+  // Arriving straight from the payment gateway, the QR is the whole reason
+  // the customer is looking at this screen — it is what they hold up at the
+  // counter. It goes above the fold rather than below the header and the
+  // progress bar, which is where it sits on a revisit.
+  const justPaid = paymentStatus === "success";
+
+  const qrBlock =
+    qrCode && ["paid", "preparing", "ready"].includes(order.status) ? (
+      <div className="bg-white rounded-2xl border border-stone-200 p-6 mb-6 text-center">
+        <h2 className="text-lg font-semibold text-stone-900 mb-1">Your Pickup QR Code</h2>
+        <p className="text-sm text-stone-500 mb-4">
+          {order.status === "ready"
+            ? "Your order is ready! Show this QR code at the counter."
+            : "Show this QR code at the counter when your order is ready."}
+        </p>
+        <div className="inline-block bg-white p-4 rounded-xl border-2 border-stone-100">
+          {/* A runtime-generated data: URL — next/image has nothing to
+              optimise here and would need unoptimized anyway. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qrCode} alt="Pickup QR Code" className="w-56 h-56 animate-scale-in" />
+        </div>
+        <div className="mt-4 bg-amber-50 rounded-lg p-3">
+          <p className="text-amber-800 font-bold text-2xl">
+            #{String(order.order_number).padStart(3, "0")}
+          </p>
+          <p className="text-amber-600 text-sm">Your Order Number</p>
+        </div>
+      </div>
+    ) : null;
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 relative">
       <Toast toast={toast} onDismiss={() => setToast(null)} />
@@ -167,6 +197,20 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-800 rounded-xl">
           <p className="font-semibold">Payment successful!</p>
           <p className="text-sm mt-1">Your order has been placed. Show your QR code at pickup when your order is ready.</p>
+        </div>
+      )}
+
+      {justPaid && qrBlock}
+
+      {/* Paid, but the QR is not up yet — the confirmation has not landed.
+          Saying so beats an empty space where the code should be. */}
+      {justPaid && !qrBlock && (
+        <div className="bg-white rounded-2xl border border-stone-200 p-6 mb-6 text-center">
+          <div className="h-56 w-56 mx-auto skeleton rounded-xl" />
+          <p className="text-sm text-stone-500 mt-4">
+            Waiting for your payment to be confirmed. Your QR code appears here as soon as it
+            is, and the counter can always look your order up by number.
+          </p>
         </div>
       )}
 
@@ -239,29 +283,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         )}
       </div>
 
-      {/* QR Code */}
-      {qrCode && ["paid", "preparing", "ready"].includes(order.status) && (
-        <div className="bg-white rounded-2xl border border-stone-200 p-6 mb-6 text-center">
-          <h2 className="text-lg font-semibold text-stone-900 mb-1">Your Pickup QR Code</h2>
-          <p className="text-sm text-stone-500 mb-4">
-            {order.status === "ready"
-              ? "Your order is ready! Show this QR code at the counter."
-              : "Show this QR code at the counter when your order is ready."}
-          </p>
-          <div className="inline-block bg-white p-4 rounded-xl border-2 border-stone-100">
-            {/* A runtime-generated data: URL — next/image has nothing to
-                optimise here and would need unoptimized anyway. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qrCode} alt="Pickup QR Code" className="w-56 h-56 animate-scale-in" />
-          </div>
-          <div className="mt-4 bg-amber-50 rounded-lg p-3">
-            <p className="text-amber-800 font-bold text-2xl">
-              #{String(order.order_number).padStart(3, "0")}
-            </p>
-            <p className="text-amber-600 text-sm">Your Order Number</p>
-          </div>
-        </div>
-      )}
+      {!justPaid && qrBlock}
 
       {/* Pending Payment CTA */}
       {order.status === "pending_payment" &&
