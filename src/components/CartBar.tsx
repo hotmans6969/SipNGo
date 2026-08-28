@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useBumpOnChange } from "@/hooks/useBumpOnChange";
+import { useCartBarVisible } from "@/hooks/useCartBarVisible";
 import { formatPrice } from "@/lib/format";
 
 /**
@@ -17,22 +16,10 @@ import { formatPrice } from "@/lib/format";
  */
 export default function CartBar() {
   const { totalItems, totalCents } = useCart();
-  const { user } = useAuth();
-  const pathname = usePathname();
   const bumping = useBumpOnChange(totalItems);
+  const visible = useCartBarVisible();
 
-  const isStaff = user?.role === "admin" || user?.role === "staff";
-
-  // The bar is a shortcut to the cart, so it has no business on the cart
-  // itself, behind the counter, or in the middle of signing in.
-  const hidden =
-    totalItems === 0 ||
-    isStaff ||
-    !!pathname?.startsWith("/cart") ||
-    !!pathname?.startsWith("/admin") ||
-    !!pathname?.startsWith("/auth");
-
-  if (hidden) return null;
+  if (!visible) return null;
 
   return (
     <>

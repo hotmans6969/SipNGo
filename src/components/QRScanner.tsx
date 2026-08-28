@@ -67,13 +67,12 @@ export default function QRScanner({ onScanSuccess, onClose }: QRScannerProps) {
         { facingMode: { exact: "environment" } },
         {
           fps: 10,
-          // Sized from the actual viewfinder rather than a fixed 250px, which
-          // overflows the video on a narrow phone.
-          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            const smallest = Math.min(viewfinderWidth, viewfinderHeight);
-            const size = Math.max(160, Math.floor(smallest * 0.7));
-            return { width: size, height: size };
-          },
+          // No `qrbox`. With one set, only the region inside the bracket is
+          // decoded and the operator has to line the customer's phone up
+          // inside it — awkward one-handed across a counter, and slower the
+          // smaller the code is on screen. Leaving it out makes the whole
+          // camera frame the scan region and suppresses the shaded overlay,
+          // so a code anywhere in view is picked up.
         },
         (decodedText) => {
           // Release the camera before handing over, so one code cannot fire
@@ -153,7 +152,7 @@ export default function QRScanner({ onScanSuccess, onClose }: QRScannerProps) {
             id="qr-reader"
             className={
               phase === "scanning"
-                ? "w-full min-h-[260px] rounded-xl overflow-hidden shadow-sm border border-stone-200 bg-stone-900"
+                ? "w-full min-h-[320px] rounded-xl overflow-hidden shadow-sm border border-stone-200 bg-stone-900"
                 : "w-full"
             }
           />
@@ -161,7 +160,7 @@ export default function QRScanner({ onScanSuccess, onClose }: QRScannerProps) {
           {phase === "scanning" ? (
             <>
               <p className="text-center text-sm text-stone-500 mt-4">
-                Hold the customer&apos;s QR code inside the frame.
+                Point the camera at the customer&apos;s QR code — anywhere in view will do.
               </p>
               <button
                 onClick={() => {

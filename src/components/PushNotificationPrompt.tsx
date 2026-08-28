@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useCartBarVisible } from "@/hooks/useCartBarVisible";
 
 const DISMISSED_KEY = "sipngo_push_prompt_dismissed";
 
@@ -35,6 +36,7 @@ function pushSupported(): boolean {
  */
 export default function PushNotificationPrompt() {
   const { user } = useAuth();
+  const cartBarVisible = useCartBarVisible();
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -123,7 +125,14 @@ export default function PushNotificationPrompt() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-[90] animate-slide-up">
+    // Stacks above whatever else is pinned to the bottom edge. The navigation
+    // is 64px; the cart bar, when there is one, takes another 72 above it, and
+    // the card used to be drawn straight over the top of it.
+    <div
+      className={`fixed left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-[90] animate-slide-up ${
+        cartBarVisible ? "bottom-36" : "bottom-20"
+      }`}
+    >
       <div className="bg-white border border-stone-200 rounded-2xl shadow-2xl p-5">
         <div className="flex items-start gap-3">
           <div className="text-2xl" aria-hidden="true">
