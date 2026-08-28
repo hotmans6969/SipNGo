@@ -65,3 +65,34 @@ export function stripeMethodTypesFor(method: "ewallet" | "card"): string[] {
 
   return list.length > 0 ? list : ["grabpay"];
 }
+
+/**
+ * A hosted Stripe Payment Link to send card and wallet customers to, if one
+ * is configured.
+ *
+ * This is a stand-in for creating a Checkout Session, and it comes with a
+ * limitation worth being blunt about: a payment link charges the fixed amount
+ * set on it in the Stripe dashboard. There is no URL parameter for the amount
+ * — only UTM codes and client_reference_id — so a RM 4 drink and a RM 40 round
+ * both charge whatever that link says. It is fine for testing the flow and
+ * must not be relied on to take real money.
+ *
+ * `client_reference_id` is what makes the payment traceable: Stripe passes it
+ * through to the checkout.session.completed webhook, which is how the order
+ * gets marked paid.
+ */
+export function paymentLinkFor(orderId: string): string | null {
+  const configured = process.env.STRIPE_PAYMENT_LINK_URL?.trim();
+  if (!configured) return null;
+
+  try {
+    const url = new URL(configured);
+    // Only ever hand a customer an https destination: this value comes from
+    // the environment and ends up as a redirect.
+    if (url.protocol !== "https:") return null;
+    url.searchParams.set("client_reference_id", orderId);
+    return url.toString();
+  } catch {
+    return null;
+  }
+}

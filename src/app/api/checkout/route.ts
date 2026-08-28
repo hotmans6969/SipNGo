@@ -13,7 +13,7 @@ import { isPaymentSimulated } from "@/lib/env";
 import { CURRENCY } from "@/lib/format";
 import { parseBody, checkoutSchema } from "@/lib/validation";
 import { notifyStaff } from "@/lib/push";
-import { stripeMethodTypesFor } from "@/lib/payment-methods";
+import { paymentLinkFor, stripeMethodTypesFor } from "@/lib/payment-methods";
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,6 +59,20 @@ export async function POST(request: NextRequest) {
         orderId: order.id,
         message: "Order placed. Pay at the counter when you collect it.",
       });
+    }
+
+    // A hosted payment link, when one is configured, stands in for building a
+    // Checkout Session — it needs no secret key, which is what makes it usable
+    // on a deployment that has not been given one yet.
+    //
+    // It charges the fixed amount set on the link, NOT this order's total. The
+    // order is only marked paid when Stripe's webhook arrives quoting the
+    // client_reference_id, which needs STRIPE_SECRET_KEY and
+    // STRIPE_WEBHOOK_SECRET to be set; without them staff settle it by hand
+    // with Take Payment. Test-mode scaffolding, not a way to take money.
+    const hostedLink = paymentLinkFor(order.id);
+    if (hostedLink) {
+      return NextResponse.json({ url: hostedLink });
     }
 
     // Simulated payment is only reachable outside production; isPaymentSimulated
