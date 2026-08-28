@@ -264,34 +264,31 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       )}
 
       {/* Pending Payment CTA */}
-      {order.status === "pending_payment" && (
-        <div className="bg-white rounded-2xl border border-stone-200 p-6 mb-6 text-center">
-          {order.payment_method === "counter" ? (
-            <>
-              <h2 className="text-lg font-semibold text-stone-900 mb-2">Pay at the counter</h2>
-              <p className="text-sm text-stone-500 mb-4">
-                Show this order at the counter and pay {formatPrice(order.total_cents)}. Changed
-                your mind? You can pay here instead.
-              </p>
-            </>
-          ) : (
-            <>
-              <h2 className="text-lg font-semibold text-stone-900 mb-2">Payment Required</h2>
-              <p className="text-sm text-stone-500 mb-4">
-                Complete your payment to confirm this order.
-              </p>
-            </>
-          )}
-          <Link
-            href={`/checkout/${order.id}`}
-            className="inline-block bg-amber-500 hover:bg-amber-600 text-white font-semibold px-8 py-3 rounded-xl transition-all active:scale-95"
-          >
-            {order.payment_method === "counter"
-              ? "Pay now instead"
-              : `Pay ${formatPrice(order.total_cents)}`}
-          </Link>
-        </div>
-      )}
+      {order.status === "pending_payment" &&
+        (order.payment_method === "counter" ? (
+          // Nothing to press. The customer has already chosen where they are
+          // paying, and offering to take the money again here only muddies
+          // what they are meant to do next, which is walk to the counter.
+          <div className="bg-white rounded-2xl border border-stone-200 p-6 mb-6 text-center">
+            <h2 className="text-lg font-semibold text-stone-900 mb-2">Pay at the counter</h2>
+            <p className="text-sm text-stone-500">
+              Show this order at the counter and pay {formatPrice(order.total_cents)}.
+            </p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-stone-200 p-6 mb-6 text-center">
+            <h2 className="text-lg font-semibold text-stone-900 mb-2">Payment Required</h2>
+            <p className="text-sm text-stone-500 mb-4">
+              Complete your payment to confirm this order.
+            </p>
+            <Link
+              href={`/checkout/${order.id}`}
+              className="inline-block bg-amber-500 hover:bg-amber-600 text-white font-semibold px-8 py-3 rounded-xl transition-all active:scale-95"
+            >
+              Pay {formatPrice(order.total_cents)}
+            </Link>
+          </div>
+        ))}
 
       {/* Order Items */}
       <div className="bg-white rounded-2xl border border-stone-200 p-6">
