@@ -34,6 +34,9 @@ const CART_STORAGE_KEY = "sipngo_cart";
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  // Whether the saved cart has been read back yet. Saving before it has would
+  // write the empty starting state straight over the stored one — see below.
+  const [loaded, setLoaded] = useState(false);
 
   // Load cart from localStorage on mount. This has to run after mount rather
   // than as a lazy initial state, or the server-rendered HTML and the first
@@ -48,12 +51,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore parse errors
     }
+    setLoaded(true);
   }, []);
 
-  // Save cart to localStorage on changes
+  // Save the cart whenever it changes, but never before it has been read.
+  //
+  // Both effects run in the same commit, and the save one used to see the
+  // empty starting `items` — so mounting wrote "[]" over the saved cart. React
+  // then double-invokes effects in development, and the second read found the
+  // blank it had just written, so the cart emptied on every reload and on
+  // every navigation. `loaded` is state rather than a ref on purpose: a ref
+  // set in the first effect would already read true in the second, which is
+  // exactly the case this has to skip.
   useEffect(() => {
+    if (!loaded) return;
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
-  }, [items]);
+  }, [items, loaded]);
 
   const addItem = useCallback((item: Omit<CartItem, "quantity" | "id">) => {
     setItems((prev) => {
