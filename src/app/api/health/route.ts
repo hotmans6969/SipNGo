@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql, describeConnection } from "@/lib/sql";
 import { isPushConfigured } from "@/lib/push";
+import { isStripeConfigured } from "@/lib/stripe";
 
 /**
  * Reports whether the app can reach its database.
@@ -29,6 +30,29 @@ export async function GET() {
     host: connection.host,
   };
 
+  // Which of the three payment routes this deployment will actually take.
+  //
+  // The three differ in ways a customer notices — a session quotes the order's
+  // real total, a link quotes whatever fixed amount it was set up with, and
+  // simulation charges nothing at all — but from the outside they are
+  // indistinguishable until someone tries to pay. A deployment missing the key
+  // that a developer's machine has is the easy mistake here, and it is
+  // invisible without something like this. Booleans only: no key is revealed.
+  const stripeConfigured = isStripeConfigured();
+  const payments = {
+    secretKey: stripeConfigured,
+    webhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
+    paymentLink: !!process.env.STRIPE_PAYMENT_LINK_URL,
+    simulationAllowed: process.env.ALLOW_SIMULATED_PAYMENTS === "true",
+    mode: stripeConfigured
+      ? "checkout-session"
+      : process.env.STRIPE_PAYMENT_LINK_URL
+        ? "payment-link"
+        : "simulated",
+    chargesOrderTotal: stripeConfigured,
+    confirmsAutomatically: stripeConfigured && !!process.env.STRIPE_WEBHOOK_SECRET,
+  };
+
   try {
     // Issued together rather than one after another. Each is a network round
     // trip to the database, so running them in sequence made this endpoint
@@ -42,6 +66,7 @@ export async function GET() {
     return NextResponse.json({
       status: "ok",
       push,
+      payments,
       database: {
         ...configured,
         reachable: row?.ok === 1,
@@ -56,7 +81,13 @@ export async function GET() {
     console.error("Health check failed:", error);
 
     return NextResponse.json(
-      { status: "error", push, database: { ...configured, reachable: false }, error: message },
+      {
+        status: "error",
+        push,
+        payments,
+        database: { ...configured, reachable: false },
+        error: message,
+      },
       { status: 503 }
     );
   }
