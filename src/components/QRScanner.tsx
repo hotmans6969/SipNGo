@@ -116,9 +116,9 @@ export default function QRScanner({ onScanSuccess, onClose }: QRScannerProps) {
   }, [stopCamera]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="app-overlay z-[100] flex items-center justify-center p-4">
       <div
-        className={`fixed inset-0 bg-black/70 transition-opacity duration-200 ${
+        className={`app-overlay bg-black/70 transition-opacity duration-200 ${
           isClosing ? "opacity-0" : "opacity-100"
         }`}
         onClick={handleClose}

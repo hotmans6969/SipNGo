@@ -115,15 +115,15 @@ export default function DialogProvider({ children }: { children: React.ReactNode
       {mounted &&
         dialog &&
         createPortal(
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="app-overlay z-[200] flex items-center justify-center p-4">
             <div
-              className="fixed inset-0 bg-black/60 animate-fade-in"
+              className="app-overlay bg-black/60 animate-fade-in"
               onClick={() => close(false)}
             />
             <div
-              role="alertdialog"
-              aria-modal="true"
-              aria-label={dialog.title}
+ role="alertdialog"
+ aria-modal="true"
+ aria-label={dialog.title}
               className="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative z-10 overflow-hidden animate-scale-in"
             >
               <div className="p-6 text-center">
@@ -136,7 +136,7 @@ export default function DialogProvider({ children }: { children: React.ReactNode
                 )}
               </div>
 
-              <div className="p-4 pt-0 flex flex-col-reverse sm:flex-row gap-2">
+              <div className="p-4 pt-0 flex flex-col-reverse gap-2">
                 {dialog.kind === "confirm" && (
                   <button
                     onClick={() => close(false)}
@@ -146,7 +146,7 @@ export default function DialogProvider({ children }: { children: React.ReactNode
                   </button>
                 )}
                 <button
-                  ref={confirmRef}
+ ref={confirmRef}
                   onClick={() => close(true)}
                   className={`flex-1 py-3.5 rounded-xl font-semibold text-white transition-all active:scale-[0.98] ${tone.accent}`}
                 >

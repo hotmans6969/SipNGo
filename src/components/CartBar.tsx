@@ -27,7 +27,7 @@ export default function CartBar() {
           scrolled clear of the bar. */}
       <div aria-hidden="true" className="h-[76px] shrink-0" />
 
-      <div className="fixed bottom-16 left-0 right-0 z-40 px-3 pb-2 pointer-events-none">
+      <div className="app-fixed fixed bottom-16 z-40 px-3 pb-2 pointer-events-none">
         <Link
           href="/cart"
           className="pointer-events-auto max-w-md mx-auto flex items-center gap-3 bg-stone-900 text-white rounded-2xl pl-3 pr-4 py-3 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] transition-all duration-200 active:scale-[0.98] hover:bg-stone-800 animate-slide-up"

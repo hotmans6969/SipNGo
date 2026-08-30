@@ -129,7 +129,7 @@ export default function PushNotificationPrompt() {
     // is 64px; the cart bar, when there is one, takes another 72 above it, and
     // the card used to be drawn straight over the top of it.
     <div
-      className={`fixed left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-[90] animate-slide-up ${
+      className={`app-fixed fixed px-4 z-[90] animate-slide-up ${
         cartBarVisible ? "bottom-36" : "bottom-20"
       }`}
     >

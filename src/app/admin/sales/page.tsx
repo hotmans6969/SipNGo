@@ -114,10 +114,10 @@ export default function SalesPage() {
   const peak = Math.max(1, ...(summary?.byDay.map((d) => d.totalCents) ?? [1]));
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 sm:py-8">
+    <div className="max-w-3xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between gap-3 mb-5">
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold text-stone-900">Sales</h1>
+          <h1 className="text-2xl font-bold text-stone-900">Sales</h1>
           {summary && (
             <p className="text-sm text-stone-500 mt-0.5">
               {summary.from === summary.to
@@ -130,7 +130,7 @@ export default function SalesPage() {
           )}
         </div>
         <Link
-          href="/admin"
+ href="/admin"
           className="shrink-0 text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors"
         >
           &larr; Orders
@@ -141,7 +141,7 @@ export default function SalesPage() {
       <div className="grid grid-cols-3 gap-2 mb-6">
         {PERIODS.map((p) => (
           <button
-            key={p.id}
+ key={p.id}
             onClick={() => {
               setPeriod(p.id);
               setLoading(true);
@@ -174,7 +174,7 @@ export default function SalesPage() {
         <>
           <div className="bg-stone-900 text-white rounded-2xl p-6 mb-4 animate-scale-in">
             <p className="text-stone-400 text-sm">Takings</p>
-            <p className="text-4xl sm:text-5xl font-black text-amber-400 mt-1 tabular-nums">
+            <p className="text-4xl font-black text-amber-400 mt-1 tabular-nums">
               {formatPrice(summary.totalCents)}
             </p>
             <div className="grid grid-cols-3 gap-3 mt-5 pt-5 border-t border-stone-700">
@@ -216,7 +216,7 @@ export default function SalesPage() {
                         <div className="flex-1 h-6 bg-stone-100 rounded-md overflow-hidden">
                           <div
                             className="h-full bg-amber-500 rounded-md transition-[width] duration-500"
-                            style={{ width: `${(day.totalCents / peak) * 100}%` }}
+ style={{ width: `${(day.totalCents / peak) * 100}%` }}
                           />
                         </div>
                         <span className="w-20 shrink-0 text-right text-sm font-semibold text-stone-700 tabular-nums">
@@ -257,7 +257,7 @@ export default function SalesPage() {
                   <div className="flex flex-wrap gap-2">
                     {summary.topToppings.map((topping) => (
                       <span
-                        key={topping.name}
+ key={topping.name}
                         className="bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-full text-sm font-medium"
                       >
                         {topping.name}

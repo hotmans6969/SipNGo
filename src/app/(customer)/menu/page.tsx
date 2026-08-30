@@ -50,7 +50,7 @@ export default function MenuPage() {
       <div className="max-w-6xl mx-auto px-4 py-12">
         <div className="space-y-4">
           <div className="h-8 skeleton rounded w-48" />
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="h-48 skeleton rounded-xl" />
             ))}
@@ -69,7 +69,7 @@ export default function MenuPage() {
           first-time visitor can see what is sold, but ordering needs one, and
           this says why it is worth making. */}
       {!authLoading && !user && (
-        <div className="bg-stone-900 text-white rounded-2xl p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4 animate-fade-in-up">
+        <div className="bg-stone-900 text-white rounded-2xl p-5 mb-6 flex flex-col gap-4 animate-fade-in-up">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xl" aria-hidden="true">⭐</span>
@@ -83,14 +83,14 @@ export default function MenuPage() {
           </div>
           <div className="flex gap-2 shrink-0">
             <Link
-              href="/auth/register"
-              className="flex-1 sm:flex-none text-center bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-3 rounded-xl transition-all active:scale-95"
+ href="/auth/register"
+              className="flex-1 text-center bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-3 rounded-xl transition-all active:scale-95"
             >
               Sign up
             </Link>
             <Link
-              href="/auth/login"
-              className="flex-1 sm:flex-none text-center bg-stone-800 hover:bg-stone-700 text-white font-semibold px-5 py-3 rounded-xl transition-all active:scale-95"
+ href="/auth/login"
+              className="flex-1 text-center bg-stone-800 hover:bg-stone-700 text-white font-semibold px-5 py-3 rounded-xl transition-all active:scale-95"
             >
               Log in
             </Link>
@@ -105,7 +105,7 @@ export default function MenuPage() {
         <p className="text-amber-50 opacity-90">Celebrate this week with double the energy. Available while supplies last.</p>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-stone-900">Our Menu</h1>
           <p className="text-stone-500 mt-1">
@@ -120,7 +120,7 @@ export default function MenuPage() {
       <div className="flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide">
         {categories.map((cat) => (
           <button
-            key={cat}
+ key={cat}
             onClick={() => setActiveCategory(cat)}
             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
               activeCategory === cat
@@ -140,19 +140,19 @@ export default function MenuPage() {
         </div>
       ) : (
         <div
-          key={activeCategory}
-          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 stagger-children"
+ key={activeCategory}
+          className="grid gap-5 stagger-children"
         >
           {filtered.map((item) => (
             <MenuItemCard
-              key={item.id}
-              id={item.id}
-              name={item.name}
-              description={item.description}
+ key={item.id}
+ id={item.id}
+ name={item.name}
+ description={item.description}
               priceCents={item.price_cents}
-              category={item.category}
+ category={item.category}
               imageUrl={item.image_url}
-              popular={item.popular}
+ popular={item.popular}
             />
           ))}
         </div>

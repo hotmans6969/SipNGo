@@ -5,11 +5,49 @@
   --foreground: #1c1917;
 }
 
+/*
+ * Foodienator palette.
+ *
+ * The menu grid, item sheet and cart bar were rebuilt from the Foodienator
+ * design (Figma file R5oj1zB52MGkwsaEm44jdw). Mint carries every affordance
+ * the customer is meant to touch — the price, the add button, the quantity
+ * stepper, the cart bar — against a flat grey page, so the drink photography
+ * is the only other thing with colour in it.
+ *
+ * These are additive. The rest of the app (admin, orders, auth) still runs on
+ * stone/amber, and nothing here changes what those screens render.
+ */
+:root {
+  --mint: #22c7a9;
+  --mint-deep: #1ba98f;
+  --heart: #f73859;
+  --surface: #f3f3f3;
+  --card: #dadada;
+  --card-edge: #c5c5c5;
+  --ink: #3f3d56;
+  --muted: #888888;
+  --label: rgba(69, 71, 69, 0.72);
+  --label-soft: rgba(69, 71, 69, 0.47);
+  --inactive: #c4c4c4;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-mint: var(--mint);
+  --color-mint-deep: var(--mint-deep);
+  --color-heart: var(--heart);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-card-edge: var(--card-edge);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-label: var(--label);
+  --color-label-soft: var(--label-soft);
+  --color-inactive: var(--inactive);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-poppins: var(--font-poppins-sans);
 }
 
 /*
@@ -154,6 +192,68 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/*
+ * The phone-width column the whole app lives in.
+ *
+ * This is a shop-counter app. Every screen was drawn for a hand holding a
+ * phone, so a desktop browser gets the same column rather than a stretched
+ * version of it — one layout to reason about, and staff on a laptop see
+ * exactly what the customer in the queue sees.
+ *
+ * Beyond this width the page keeps a darker ground and a soft edge, which
+ * reads as a deliberate frame rather than a page that failed to fill out.
+ */
+:root {
+  --app-width: 28rem; /* 448px — a large phone, and what the nav already used */
+}
+
+.app-shell {
+  width: 100%;
+  max-width: var(--app-width);
+  margin-inline: auto;
+}
+
+@media (min-width: 28rem) {
+  .app-shell {
+    box-shadow: 0 0 0 1px var(--color-stone-300), 0 20px 50px -20px rgb(0 0 0 / 0.25);
+  }
+}
+
+/*
+ * Anything pinned to the viewport — the navigation, the cart bar, the push
+ * prompt — has to sit inside that column too, or it spans the whole desktop
+ * and the frame falls apart. Centring on the viewport and capping the width
+ * keeps them locked to the shell.
+ */
+.app-fixed {
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: var(--app-width);
+  /* Centred with auto margins rather than a translate: these elements also
+     carry Tailwind animation utilities, and an animation that sets `transform`
+     replaces a centring one outright, dropping the element half a column off. */
+  margin-inline: auto;
+}
+
+/*
+ * Modals and their dimming backdrops. Left to `inset-0` these covered the
+ * whole desktop while the app itself was a narrow column, so the dimming had
+ * no relationship to the thing being dimmed and the dialog landed centred on
+ * the screen rather than on the app. Confining them to the column keeps a
+ * modal reading as part of the phone it belongs to.
+ */
+.app-overlay {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: var(--app-width);
+  margin-inline: auto;
 }
 
 /*

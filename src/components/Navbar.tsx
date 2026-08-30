@@ -42,7 +42,7 @@ export default function Navbar() {
       </header>
 
       {/* Bottom Navigation Bar */}
-      <nav className="bg-white border-t border-stone-200 fixed bottom-0 left-0 right-0 z-50 safe-area-pb shadow-[0_-5px_20px_-15px_rgba(0,0,0,0.3)]">
+      <nav className="app-fixed bg-white border-t border-stone-200 fixed bottom-0 z-50 safe-area-pb shadow-[0_-5px_20px_-15px_rgba(0,0,0,0.3)]">
         <div className="max-w-md mx-auto flex justify-around items-center h-16">
           
           {/* Staff have no use for the ordering menu — they are not buying

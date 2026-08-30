@@ -78,10 +78,10 @@ export default function ItemDetailsModal({
     toppingsPriceCents(toppings);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="app-overlay z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-black/60 transition-opacity duration-200 ${
+        className={`app-overlay bg-black/60 transition-opacity duration-200 ${
           isClosing ? "opacity-0" : "animate-fade-in opacity-100"
         }`}
         onClick={handleClose}
@@ -89,16 +89,16 @@ export default function ItemDetailsModal({
       
       {/* Modal */}
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={name}
+ role="dialog"
+ aria-modal="true"
+ aria-label={name}
         className={`bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden relative z-10 flex flex-col max-h-[90vh] ${
           isClosing
             ? "scale-95 opacity-0 transition-all duration-200"
             : "animate-scale-in"
         }`}
       >
-        <div className="w-full h-48 sm:h-56 overflow-hidden bg-stone-100">
+        <div className="w-full h-48 overflow-hidden bg-stone-100">
           <MenuItemImage src={imageUrl} alt={name} category={category} />
         </div>
         
@@ -149,12 +149,12 @@ export default function ItemDetailsModal({
             {/* Sugar Level */}
             <div>
               <h3 className="font-semibold text-stone-900 mb-3">Sugar Level</h3>
-              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {(["normal", "less", "none"] as const).map((level) => (
                   <button
-                    key={level}
+ key={level}
                     onClick={() => setSugarLevel(level)}
-                    className={`py-2 px-2 sm:px-4 rounded-xl border text-sm font-medium transition-all ${
+                    className={`py-2 px-2  rounded-xl border text-sm font-medium transition-all ${
                       sugarLevel === level 
                         ? "border-amber-500 bg-amber-50 text-amber-700 ring-1 ring-amber-500" 
                         : "border-stone-200 text-stone-600 hover:bg-stone-50"
@@ -174,14 +174,14 @@ export default function ItemDetailsModal({
                   +{formatPrice(TOPPING_PRICE_CENTS)} each
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 {TOPPINGS.map((topping) => {
                   const selected = toppings.includes(topping.id);
                   return (
                     <button
-                      key={topping.id}
+ key={topping.id}
                       onClick={() => toggleTopping(topping.id)}
-                      aria-pressed={selected}
+ aria-pressed={selected}
                       className={`py-2.5 px-3 rounded-xl border text-sm font-medium transition-all active:scale-95 flex items-center gap-2 ${
                         selected
                           ? "border-amber-500 bg-amber-50 text-amber-700 ring-1 ring-amber-500"
@@ -206,11 +206,11 @@ export default function ItemDetailsModal({
             <div>
               <h3 className="font-semibold text-stone-900 mb-3">Remarks</h3>
               <textarea 
-                value={remark}
+ value={remark}
                 onChange={(e) => setRemark(e.target.value)}
-                placeholder="Any special requests?"
+ placeholder="Any special requests?"
                 className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all resize-none"
-                rows={2}
+ rows={2}
               />
             </div>
           </div>

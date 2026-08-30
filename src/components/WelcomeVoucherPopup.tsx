@@ -99,9 +99,9 @@ export default function WelcomeVoucherPopup() {
   if (!mounted || !voucher) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+    <div className="app-overlay z-[150] flex items-center justify-center p-4">
       <div
-        className={`fixed inset-0 bg-black/60 transition-opacity duration-200 ${
+        className={`app-overlay bg-black/60 transition-opacity duration-200 ${
           closing ? "opacity-0" : "animate-fade-in"
         }`}
         onClick={dismiss}

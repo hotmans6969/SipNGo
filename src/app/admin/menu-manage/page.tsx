@@ -159,19 +159,19 @@ export default function MenuManagePage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+      <div className="flex flex-col gap-4 mb-6">
         <div>
           <Link href="/admin" className="text-amber-600 hover:text-amber-700 font-medium text-sm mb-1 inline-block">
             &larr; Back to Dashboard
           </Link>
-          <h1 className="text-2xl sm:text-3xl font-bold text-stone-900">Manage Menu</h1>
+          <h1 className="text-2xl font-bold text-stone-900">Manage Menu</h1>
         </div>
         <button
           onClick={() => {
             resetForm();
             setShowForm(true);
           }}
-          className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-3.5 sm:py-2 rounded-xl sm:rounded-lg transition-all active:scale-[0.98]"
+          className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-3.5 rounded-xl transition-all active:scale-[0.98]"
         >
           + Add Item
         </button>
@@ -191,12 +191,12 @@ export default function MenuManagePage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid gap-4">
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-1">Name</label>
                 <input
-                  type="text"
-                  value={formData.name}
+ type="text"
+ value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                   className="w-full px-4 py-2.5 rounded-lg border border-stone-300 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none text-stone-900"
@@ -205,7 +205,7 @@ export default function MenuManagePage() {
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-1">Category</label>
                 <select
-                  value={formData.category}
+ value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg border border-stone-300 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none text-stone-900"
                 >
@@ -221,36 +221,36 @@ export default function MenuManagePage() {
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1">Description</label>
               <input
-                type="text"
-                value={formData.description}
+ type="text"
+ value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-lg border border-stone-300 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none text-stone-900"
               />
             </div>
 
-            <div className="w-full sm:w-32">
+            <div className="w-full">
               <label className="block text-sm font-medium text-stone-700 mb-1">Price (RM)</label>
               <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={formData.priceStr}
+ type="number"
+ step="0.01"
+ min="0.01"
+ value={formData.priceStr}
                 onChange={(e) => setFormData({ ...formData, priceStr: e.target.value })}
                 required
                 className="w-full px-4 py-2.5 rounded-lg border border-stone-300 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none text-stone-900"
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col gap-3">
               <button
-                type="submit"
-                disabled={saving}
-                className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3.5 sm:py-2.5 rounded-xl sm:rounded-lg transition-all active:scale-[0.98] disabled:opacity-50"
+ type="submit"
+ disabled={saving}
+                className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3.5 rounded-xl transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 {saving ? "Saving..." : editingId ? "Update" : "Add Item"}
               </button>
               <button
-                type="button"
+ type="button"
                 onClick={resetForm}
                 className="bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium px-6 py-2.5 rounded-lg transition-colors"
               >
@@ -265,8 +265,8 @@ export default function MenuManagePage() {
       <div className="space-y-3">
         {items.map((item) => (
           <div
-            key={item.id}
-            className={`bg-white rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 ${
+ key={item.id}
+            className={`bg-white rounded-xl border p-4 flex flex-col   gap-3  ${
               item.available ? "border-stone-200" : "border-red-200 bg-red-50/30"
             }`}
           >
@@ -285,16 +285,16 @@ export default function MenuManagePage() {
               <p className="text-sm text-stone-400 truncate">{item.description}</p>
             </div>
 
-            <span className="font-semibold text-amber-600 whitespace-nowrap sm:order-none">
+            <span className="font-semibold text-amber-600 whitespace-nowrap">
               {formatPrice(item.price_cents)}
             </span>
 
             {/* Three across on a phone so each is a real target, inline once
                 there is room for them beside the name. */}
-            <div className="grid grid-cols-3 sm:flex gap-2 flex-shrink-0">
+            <div className="grid grid-cols-3 gap-2 flex-shrink-0">
               <button
                 onClick={() => toggleAvailability(item)}
-                className={`text-sm sm:text-xs px-3 py-2.5 sm:py-1.5 rounded-lg font-medium transition-all active:scale-95 ${
+                className={`text-sm  px-3 py-2.5  rounded-lg font-medium transition-all active:scale-95 ${
                   item.available
                     ? "bg-stone-100 hover:bg-stone-200 text-stone-600"
                     : "bg-green-100 hover:bg-green-200 text-green-700"
@@ -304,13 +304,13 @@ export default function MenuManagePage() {
               </button>
               <button
                 onClick={() => startEdit(item)}
-                className="text-sm sm:text-xs px-3 py-2.5 sm:py-1.5 rounded-lg font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 transition-all active:scale-95"
+                className="text-sm px-3 py-2.5 rounded-lg font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 transition-all active:scale-95"
               >
                 Edit
               </button>
               <button
                 onClick={() => deleteItem(item.id)}
-                className="text-sm sm:text-xs px-3 py-2.5 sm:py-1.5 rounded-lg font-medium bg-red-100 hover:bg-red-200 text-red-700 transition-all active:scale-95"
+                className="text-sm px-3 py-2.5 rounded-lg font-medium bg-red-100 hover:bg-red-200 text-red-700 transition-all active:scale-95"
               >
                 Delete
               </button>

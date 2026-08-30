@@ -195,7 +195,7 @@ export default function AdminDashboard() {
         />
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+      <div className="flex flex-col justify-between gap-4 mb-4">
         <div>
           <h1 className="text-3xl font-bold text-stone-900">Order Dashboard</h1>
           <p className="text-stone-500 mt-1">{activeOrders.length} active orders requiring attention</p>
@@ -206,7 +206,7 @@ export default function AdminDashboard() {
               setScanError("");
               setShowScanner(true);
             }}
-            className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-4 rounded-xl transition-all active:scale-[0.97] shadow-md text-lg flex-1 sm:flex-none"
+            className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-4 rounded-xl transition-all active:scale-[0.97] shadow-md text-lg flex-1"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10V3h7m11 7V3h-7m-11 11v7h7m11-7v7h-7" />
@@ -215,8 +215,8 @@ export default function AdminDashboard() {
           </button>
           
           <Link
-            href="/admin/menu-manage"
-            className="flex items-center justify-center gap-2 bg-stone-900 hover:bg-stone-800 text-white font-bold px-6 py-4 rounded-xl transition-all active:scale-[0.97] shadow-md text-lg flex-1 sm:flex-none"
+ href="/admin/menu-manage"
+            className="flex items-center justify-center gap-2 bg-stone-900 hover:bg-stone-800 text-white font-bold px-6 py-4 rounded-xl transition-all active:scale-[0.97] shadow-md text-lg flex-1"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -237,7 +237,7 @@ export default function AdminDashboard() {
           <span>{actionError}</span>
           <button
             onClick={() => setActionError("")}
-            aria-label="Dismiss"
+ aria-label="Dismiss"
             className="shrink-0 text-red-500 hover:text-red-700 transition-all active:scale-90"
           >
             ✕
@@ -277,7 +277,7 @@ export default function AdminDashboard() {
       <div className="flex gap-2 overflow-x-auto pb-4 mb-6">
         {statuses.map((s) => (
           <button
-            key={s}
+ key={s}
             onClick={() => {
               setStatusFilter(s);
               setLoading(true);
@@ -301,7 +301,7 @@ export default function AdminDashboard() {
         <div className="space-y-4 stagger-children">
           {orders.map((order) => (
             <div
-              key={order.id}
+ key={order.id}
               className={`bg-white rounded-xl border p-5 transition-all duration-300 ${
                 order.status === "paid" 
                   ? "border-amber-400 shadow-md shadow-amber-100 bg-amber-50/10 animate-attention-pulse"
@@ -314,7 +314,7 @@ export default function AdminDashboard() {
                   : "border-stone-200"
               }`}
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex flex-col justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1 flex-wrap">
                     <span className="text-2xl font-bold text-stone-900">
@@ -335,10 +335,10 @@ export default function AdminDashboard() {
                       <div key={item.id} className="mb-2 last:mb-0">
                         <span className="font-bold">{item.quantity}x</span> {item.name}
                         <ItemCustomisations
-                          temperature={item.temperature}
+ temperature={item.temperature}
                           sugarLevel={item.sugar_level}
-                          toppings={item.toppings}
-                          remark={item.remark}
+ toppings={item.toppings}
+ remark={item.remark}
                           emphasis
                         />
                       </div>
@@ -348,12 +348,12 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex flex-col gap-2 flex-shrink-0 w-full sm:w-auto">
+                <div className="flex flex-col gap-2 flex-shrink-0 w-full">
                   {statusActions[order.status]?.map((action) => (
                     <button
-                      key={action.next}
+ key={action.next}
                       onClick={() => updateStatus(order.id, action.next)}
-                      disabled={updatingId === order.id}
+ disabled={updatingId === order.id}
                       className={`${action.color} text-white font-bold px-6 py-4 rounded-xl transition-colors text-lg disabled:opacity-50`}
                     >
                       {updatingId === order.id ? "Working..." : action.label}
@@ -387,7 +387,7 @@ export default function AdminDashboard() {
                         });
                         if (ok) updateStatus(order.id, "cancelled");
                       }}
-                      disabled={updatingId === order.id}
+ disabled={updatingId === order.id}
                       className="bg-stone-100 hover:bg-red-50 text-stone-600 hover:text-red-600 font-medium px-4 py-2 border border-transparent hover:border-red-200 rounded-lg transition-colors text-sm disabled:opacity-50 text-center"
                     >
                       Cancel Order
