@@ -14,9 +14,11 @@ interface MenuItemCardProps {
   imageUrl?: string;
   /** One of the best sellers, called out at the top of the menu. */
   popular?: boolean;
+  /** What the shop charges for ice, from the menu response. */
+  icedSurchargeCents?: number;
 }
 
-export default function MenuItemCard({ id, name, description, priceCents, category, imageUrl, popular }: MenuItemCardProps) {
+export default function MenuItemCard({ id, name, description, priceCents, category, imageUrl, popular, icedSurchargeCents }: MenuItemCardProps) {
   const [showModal, setShowModal] = useState(false);
 
 
@@ -88,6 +90,7 @@ export default function MenuItemCard({ id, name, description, priceCents, catego
           priceCents={priceCents}
           category={category}
           imageUrl={imageUrl}
+          icedSurchargeCents={icedSurchargeCents}
           onClose={() => setShowModal(false)}
         />
       )}

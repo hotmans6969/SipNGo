@@ -130,7 +130,7 @@ export default function SalesPage() {
           )}
         </div>
         <Link
- href="/admin"
+          href="/admin"
           className="shrink-0 text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors"
         >
           &larr; Orders
@@ -141,7 +141,7 @@ export default function SalesPage() {
       <div className="grid grid-cols-3 gap-2 mb-6">
         {PERIODS.map((p) => (
           <button
- key={p.id}
+            key={p.id}
             onClick={() => {
               setPeriod(p.id);
               setLoading(true);
@@ -216,7 +216,7 @@ export default function SalesPage() {
                         <div className="flex-1 h-6 bg-stone-100 rounded-md overflow-hidden">
                           <div
                             className="h-full bg-amber-500 rounded-md transition-[width] duration-500"
- style={{ width: `${(day.totalCents / peak) * 100}%` }}
+                            style={{ width: `${(day.totalCents / peak) * 100}%` }}
                           />
                         </div>
                         <span className="w-20 shrink-0 text-right text-sm font-semibold text-stone-700 tabular-nums">
@@ -257,7 +257,7 @@ export default function SalesPage() {
                   <div className="flex flex-wrap gap-2">
                     {summary.topToppings.map((topping) => (
                       <span
- key={topping.name}
+                        key={topping.name}
                         className="bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-full text-sm font-medium"
                       >
                         {topping.name}

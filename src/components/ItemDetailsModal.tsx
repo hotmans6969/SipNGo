@@ -19,6 +19,12 @@ interface ItemDetailsModalProps {
   priceCents: number;
   category: string;
   imageUrl?: string;
+  /**
+   * What the shop charges for ice, from the server. Falls back to the default
+   * only when the menu has not loaded — guessing it here is what let the cart
+   * quote a different total from the one actually charged.
+   */
+  icedSurchargeCents?: number;
   onClose: () => void;
 }
 
@@ -29,6 +35,7 @@ export default function ItemDetailsModal({
   priceCents,
   category,
   imageUrl,
+  icedSurchargeCents = DEFAULT_ICED_SURCHARGE_CENTS,
   onClose,
 }: ItemDetailsModalProps) {
   const { addItem } = useCart();
@@ -74,7 +81,7 @@ export default function ItemDetailsModal({
 
   const calculatedPrice =
     priceCents +
-    (temperature === "iced" ? DEFAULT_ICED_SURCHARGE_CENTS : 0) +
+    (temperature === "iced" ? icedSurchargeCents : 0) +
     toppingsPriceCents(toppings);
 
   return (
@@ -89,9 +96,9 @@ export default function ItemDetailsModal({
       
       {/* Modal */}
       <div
- role="dialog"
- aria-modal="true"
- aria-label={name}
+        role="dialog"
+        aria-modal="true"
+        aria-label={name}
         className={`bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden relative z-10 flex flex-col max-h-[90vh] ${
           isClosing
             ? "scale-95 opacity-0 transition-all duration-200"
@@ -152,7 +159,7 @@ export default function ItemDetailsModal({
               <div className="grid grid-cols-3 gap-2">
                 {(["normal", "less", "none"] as const).map((level) => (
                   <button
- key={level}
+                    key={level}
                     onClick={() => setSugarLevel(level)}
                     className={`py-2 px-2  rounded-xl border text-sm font-medium transition-all ${
                       sugarLevel === level 
@@ -179,9 +186,9 @@ export default function ItemDetailsModal({
                   const selected = toppings.includes(topping.id);
                   return (
                     <button
- key={topping.id}
+                      key={topping.id}
                       onClick={() => toggleTopping(topping.id)}
- aria-pressed={selected}
+                      aria-pressed={selected}
                       className={`py-2.5 px-3 rounded-xl border text-sm font-medium transition-all active:scale-95 flex items-center gap-2 ${
                         selected
                           ? "border-amber-500 bg-amber-50 text-amber-700 ring-1 ring-amber-500"
@@ -206,11 +213,11 @@ export default function ItemDetailsModal({
             <div>
               <h3 className="font-semibold text-stone-900 mb-3">Remarks</h3>
               <textarea 
- value={remark}
+                value={remark}
                 onChange={(e) => setRemark(e.target.value)}
- placeholder="Any special requests?"
+                placeholder="Any special requests?"
                 className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all resize-none"
- rows={2}
+                rows={2}
               />
             </div>
           </div>

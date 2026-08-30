@@ -121,9 +121,9 @@ export default function DialogProvider({ children }: { children: React.ReactNode
               onClick={() => close(false)}
             />
             <div
- role="alertdialog"
- aria-modal="true"
- aria-label={dialog.title}
+              role="alertdialog"
+              aria-modal="true"
+              aria-label={dialog.title}
               className="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative z-10 overflow-hidden animate-scale-in"
             >
               <div className="p-6 text-center">
@@ -146,7 +146,7 @@ export default function DialogProvider({ children }: { children: React.ReactNode
                   </button>
                 )}
                 <button
- ref={confirmRef}
+                  ref={confirmRef}
                   onClick={() => close(true)}
                   className={`flex-1 py-3.5 rounded-xl font-semibold text-white transition-all active:scale-[0.98] ${tone.accent}`}
                 >

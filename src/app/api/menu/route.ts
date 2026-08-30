@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import getDb from "@/lib/db";
 import { sql } from "@/lib/sql";
 import { getMalaysiaDateString } from "@/lib/dates";
+import { getIcedSurchargeCents } from "@/lib/env";
 import { SOLD_STATUSES } from "@/lib/order-status";
 import {
   MENU_COLUMNS_QUALIFIED,
@@ -56,7 +57,10 @@ export async function GET() {
       return { ...row, sold, popular: index < POPULAR_COUNT && sold > 0 };
     });
 
-    return NextResponse.json({ items });
+    // The surcharge is configurable on the server, so the client cannot know
+    // it. Sending it with the prices is what keeps the total in the cart and
+    // the total on the payment page the same number.
+    return NextResponse.json({ items, icedSurchargeCents: getIcedSurchargeCents() });
   } catch (error) {
     console.error("Menu fetch error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

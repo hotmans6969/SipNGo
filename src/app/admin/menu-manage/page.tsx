@@ -195,8 +195,8 @@ export default function MenuManagePage() {
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-1">Name</label>
                 <input
- type="text"
- value={formData.name}
+                  type="text"
+                  value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                   className="w-full px-4 py-2.5 rounded-lg border border-stone-300 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none text-stone-900"
@@ -205,7 +205,7 @@ export default function MenuManagePage() {
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-1">Category</label>
                 <select
- value={formData.category}
+                  value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg border border-stone-300 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none text-stone-900"
                 >
@@ -221,8 +221,8 @@ export default function MenuManagePage() {
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1">Description</label>
               <input
- type="text"
- value={formData.description}
+                type="text"
+                value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-lg border border-stone-300 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none text-stone-900"
               />
@@ -231,10 +231,10 @@ export default function MenuManagePage() {
             <div className="w-full">
               <label className="block text-sm font-medium text-stone-700 mb-1">Price (RM)</label>
               <input
- type="number"
- step="0.01"
- min="0.01"
- value={formData.priceStr}
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={formData.priceStr}
                 onChange={(e) => setFormData({ ...formData, priceStr: e.target.value })}
                 required
                 className="w-full px-4 py-2.5 rounded-lg border border-stone-300 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none text-stone-900"
@@ -243,14 +243,14 @@ export default function MenuManagePage() {
 
             <div className="flex flex-col gap-3">
               <button
- type="submit"
- disabled={saving}
+                type="submit"
+                disabled={saving}
                 className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3.5 rounded-xl transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 {saving ? "Saving..." : editingId ? "Update" : "Add Item"}
               </button>
               <button
- type="button"
+                type="button"
                 onClick={resetForm}
                 className="bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium px-6 py-2.5 rounded-lg transition-colors"
               >
@@ -265,7 +265,7 @@ export default function MenuManagePage() {
       <div className="space-y-3">
         {items.map((item) => (
           <div
- key={item.id}
+            key={item.id}
             className={`bg-white rounded-xl border p-4 flex flex-col   gap-3  ${
               item.available ? "border-stone-200" : "border-red-200 bg-red-50/30"
             }`}

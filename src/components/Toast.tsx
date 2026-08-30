@@ -39,8 +39,8 @@ export default function Toast({
 
   return createPortal(
     <div
- role="status"
- aria-live="polite"
+      role="status"
+      aria-live="polite"
       className="app-fixed fixed top-4 px-4 bg-stone-900 text-white p-5 rounded-2xl shadow-2xl z-[100] animate-bounce-short border border-stone-700"
     >
       <div className="flex justify-between items-start gap-4">
@@ -50,7 +50,7 @@ export default function Toast({
         </div>
         <button
           onClick={onDismiss}
- aria-label="Dismiss notification"
+          aria-label="Dismiss notification"
           className="text-stone-400 hover:text-white transition-all hover:scale-110 active:scale-90"
         >
           ✕

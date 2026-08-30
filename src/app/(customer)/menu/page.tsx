@@ -25,12 +25,15 @@ export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("all");
+  // Priced by the server, so the cart and the payment page cannot disagree.
+  const [icedSurchargeCents, setIcedSurchargeCents] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     fetch("/api/menu")
       .then((res) => res.json())
       .then((data) => {
         setItems(data.items || []);
+        setIcedSurchargeCents(data.icedSurchargeCents);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -83,13 +86,13 @@ export default function MenuPage() {
           </div>
           <div className="flex gap-2 shrink-0">
             <Link
- href="/auth/register"
+              href="/auth/register"
               className="flex-1 text-center bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-3 rounded-xl transition-all active:scale-95"
             >
               Sign up
             </Link>
             <Link
- href="/auth/login"
+              href="/auth/login"
               className="flex-1 text-center bg-stone-800 hover:bg-stone-700 text-white font-semibold px-5 py-3 rounded-xl transition-all active:scale-95"
             >
               Log in
@@ -120,7 +123,7 @@ export default function MenuPage() {
       <div className="flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide">
         {categories.map((cat) => (
           <button
- key={cat}
+            key={cat}
             onClick={() => setActiveCategory(cat)}
             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
               activeCategory === cat
@@ -140,19 +143,20 @@ export default function MenuPage() {
         </div>
       ) : (
         <div
- key={activeCategory}
+          key={activeCategory}
           className="grid gap-5 stagger-children"
         >
           {filtered.map((item) => (
             <MenuItemCard
- key={item.id}
- id={item.id}
- name={item.name}
- description={item.description}
+              key={item.id}
+              id={item.id}
+              name={item.name}
+              description={item.description}
               priceCents={item.price_cents}
- category={item.category}
+              category={item.category}
               imageUrl={item.image_url}
- popular={item.popular}
+              popular={item.popular}
+              icedSurchargeCents={icedSurchargeCents}
             />
           ))}
         </div>
